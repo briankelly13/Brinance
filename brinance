@@ -35,15 +35,15 @@ use Brinance;
 #	Accepted args:
 #		b - show balance
 #			$ brinance -b
-#		B - future balance
+#		B - dated balance
 #			$ brinance -B <12-digit date>
 #		c - credit
 #			$ brinance -c <amount> <comment>
-#		C - future credit
+#		C - dated credit
 #			$ brinance -C <12-digit date> <amount> <comment>
 #		d - debit
 #			$ brinance -d <amount> <comment>
-#		D - future debit
+#		D - dated debit
 #			$ brinance -D <12-digit date> <amount> <comment>
 #		# - (as in, a number) all following arguments refer to this (numbered) account
 #			$ brinance -2 <action>
@@ -56,7 +56,7 @@ use Brinance;
 #		v - version
 #			$ brinance -v
 
-my $VERSION = "3.01";
+my $VERSION = "3.10";
 my @arglist;
 
 # We first pull apart all arguments and push them or their equivalent into @arglist
@@ -79,13 +79,13 @@ foreach ( @ARGV )
 		elsif ( $_ eq "--balance" ) {
 			push ( @arglist, "b" );
 		}
-		elsif ( $_ eq "--futurecredit" ) {
+		elsif ( $_ eq "--datedcredit" ) {
 			push ( @arglist, "C" );
 		}
-		elsif ( $_ eq "--futuredebit" ) {
+		elsif ( $_ eq "--dateddebit" ) {
 			push ( @arglist, "D" );
 		}
-		elsif ( $_ eq "--futurebalance" ) {
+		elsif ( $_ eq "--datedbalance" ) {
 			push ( @arglist, "B" );
 		}
 		elsif ( $_ eq "--name" ) {
@@ -196,12 +196,17 @@ foreach ( @arglist )
 		my $mod_ver = &Brinance::version ();
 		print "Brinance module version: $mod_ver\n";
 		print "brinance CLI version: $VERSION\n";
+		print "\n";
+		print "Copyright (C) 2003 Brian Kelly locoburger\@netscape.net\n";
+		print "brinance comes with ABSOLUTELY NO WARRANTY\n";
+		print "This is free software, and you are welcome to redistribute it\n";
+		print "under certain conditions. See LICENSE for details.\n";
 	}
 	elsif ( $_ eq "h" ) {
 		&usage (0);
 	}
 	elsif ( $_ eq "b" ) {
-		print "Balance: " . sprintf ("%.2f", Brinance::balance ()) . "\n";
+		print "Balance: " . sprintf ("%.2f", &Brinance::balance ()) . "\n";
 	}
 	elsif ( $_ eq "c" ) {
 		$credit = 1;
@@ -213,11 +218,11 @@ foreach ( @arglist )
 	}
 	elsif ( $_ eq "C" ) {
 		$credit = 1;
-		&CLIfuturetrans ();
+		&CLIdatedtrans ();
 	}
 	elsif ( $_ eq "D" ) {
 		$credit = 0;
-		&CLIfuturetrans ();
+		&CLIdatedtrans ();
 	}
 	elsif ( $_ eq "B" ) {
 		if ( $arglist[$where+1] )
@@ -225,27 +230,20 @@ foreach ( @arglist )
 			my $out;
 
 			if ($arglist[$where+1] =~ /^\+(\d+)$/) {
-				$out = &Brinance::futurebalance ( &addDate ($Brinance::now, $1) );
+				$out = &Brinance::datedbalance ( &addDate ($Brinance::now, $1) );
 			}
 			elsif ($arglist[$where+1] =~ /^\d{12}$/) {
-				$out = &Brinance::futurebalance ( $arglist[$where+1] );
+				$out = &Brinance::datedbalance ( $arglist[$where+1] );
 			}
 			else {
-				print "ERROR: Invalid date format for future balance\n";
+				print "ERROR: Invalid date format for dated balance\n";
 				&usage (1);
 			}
 
-			if ( $out ) {
-				# success
-				print "account" . $Brinance::current_acct . " future balance: " . sprintf ("%.2f", $out) . "\n";
-			}
-			else {
-				print "ERROR: invalid argument to Brinance::futurebalance()\n";
-				&usage (1);
-			}
+			print "account" . $Brinance::current_acct . " dated balance: " . sprintf ("%.2f", $out) . "\n";
 		}
 		else {
-			print "ERROR: future balance requires an argument\n";
+			print "ERROR: dated balance requires an argument\n";
 			&usage (1);
 		}
 		$skipnext = 1;
@@ -314,15 +312,15 @@ sub usage () {
   Accepted args:
      -b --balance -> show balance
         \$ $exec -b
-     -B --futurebalance -> show future balance
+     -B --datedbalance -> show dated balance
         \$ $exec -B 200306271200
      -c --credit -> credit
         \$ $exec -c <amount> <comment>
-     -C --futurecredit -> future credit
+     -C --datedcredit -> dated credit
         \$ $exec -C 200306271200 <amount> <comment>
      -d --debit -> debit
         \$ $exec -d <amount> <comment>
-     -D --futuredebit -> future debit
+     -D --dateddebit -> dated debit
         \$ $exec -D 200306271200 <amount> <comment>
      -# -> (as in, a number) all following arguments refer to this account
         \$ $exec -2 <action>
@@ -339,7 +337,7 @@ sub usage () {
 }
 
 sub CLItrans {
-	if ( 0 == $arglist[$where+1] ) { $arglist[$where+1] .= ".0"; }
+	if ( 0 == $arglist[$where+1] ) { $arglist[$where+1] .= ".00"; }
 
 	if ( $arglist[$where+2] && $arglist[$where+1] )
 	{  
@@ -399,8 +397,8 @@ sub CLItrans {
 	}  
 }
 
-sub CLIfuturetrans {
-	if ( $arglist[$where+1] && $arglist[$where+1] == 0) { $arglist[$where+1] .= ".0"; }
+sub CLIdatedtrans {
+	if ( $arglist[$where+1] && $arglist[$where+1] == 0) { $arglist[$where+1] .= ".00"; }
 
 	if ( $arglist[$where+3] && $arglist[$where+2] && $arglist[$where+1] )
 	{
@@ -424,19 +422,19 @@ sub CLIfuturetrans {
 			$amount = -1 * $arglist[$where+2];
 		}
 
-		my $out = &Brinance::futuretrans ( $date_mod, $amount, $comment );
+		my $out = &Brinance::datedtrans ( $date_mod, $amount, $comment );
 
 		if ( 0 == $out )
 		{
 			# success
-			print "Future transaction applied\n";
+			print "Dated transaction applied\n";
 
 			$skipnext = 3;
 		}
 		elsif ( -1 == $out )
 		{
 			# too few args
-			print "ERROR: too few arguments to Brinance::futuretrans()\n";
+			print "ERROR: too few arguments to Brinance::datedtrans()\n";
 			&usage (1);
 		}
 		elsif ( -2 == $out )
@@ -445,22 +443,16 @@ sub CLIfuturetrans {
 			print "ERROR: zero-value transaction\n";
 			&usage (1);
 		}
-		elsif ( -3 == $out )
-		{
-			# invalid date format
-			print "ERROR: date specified either invalid or in the past\n";
-			&usage (1);
-		}
 		else
 		{
-			print "ERROR: undefined output from Brinance::futuretrans(); Check your account files..\n";
+			print "ERROR: undefined output from Brinance::datedtrans(); Check your account files..\n";
 			print "Exitting..\n";
-			exit (0);
+			exit (1);
 		}
 	}
 	else
 	{
-		print "ERROR: too few arguments for a future transaction\n";
+		print "ERROR: too few arguments for a dated transaction\n";
 		&usage (1);
 	}
 }

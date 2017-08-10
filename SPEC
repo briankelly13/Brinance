@@ -4,7 +4,8 @@
 
    Version of 3 of Brinance introduced a Perl module that does all the heavy
 lifting for you. Herein, you'll find documentation for each subroutine and
-variable in the module.
+variable in the module. This is current as of version 1.10, found in brinance
+version 3.10.
 
 subroutines:
 
@@ -23,28 +24,28 @@ sub &Brinance::trans ( $amount, $comment ):
    Takes two arguments: a transaction amount, and a string describing the
 transaction. Applies a transaction against the current account. This subroutine
 is called for either a credit or a debit. Negative amounts are debits, positive
-are credits. The subroutine returns as follows:
+amounts are credits. The subroutine returns as follows:
    0 => success
   -1 => Too few arguments (two are required)
   -2 => A zero-value transaction, which is meaningless, and might mean a
 non-number was passed as the transaction amount
 
-sub &Brinance::futurebalance ( $futureDate ):
-   Takes one argument: a future date in 12-digit format (YYYYMMDDHHmm, e.g.
+sub &Brinance::datedbalance ( $date ):
+   Takes one argument: a date in 12-digit format (YYYYMMDDHHmm, e.g.
 200310271645). Calculates the balance for the current account at the specified
-date. The subroutine returns as follows:
-   undef     => Too few arguments (one is required), or argument is in the past
-   otherwise => The future balance is returned
+date. The calling code must be careful to supply a properly formatted date, or
+the output may be unreliable. The subroutine returns as follows:
+   0    => dated balance is 0, or there are not enough arguments
+   else => dated balance is returned
 
-sub &Brinance::futuretrans ( &futureDate, $amount, $comment ):
-   Takes three arguments: a future date in 12-digit format (YYYYMMDDHHmm, e.g.
+sub &Brinance::datedtrans ( &date, $amount, $comment ):
+   Takes three arguments: a date in 12-digit format (YYYYMMDDHHmm, e.g.
 200310271645), a transaction amount and a transaction comment. Applies the
-transaction at the specified future date. The subroutine returns as follows:
+transaction at the specified date. The subroutine returns as follows:
    0 => success
   -1 => Too few arguments (three are required)
   -2 => A zero-value transaction, which is meaningless, and might mean a
 non-number was passed as the transaction amount
-  -3 => Date specified is not in the future
 
 sub &Brinance::update_future ():
    Takes no arguments. Scans future file for the current account to see if there
@@ -52,7 +53,7 @@ are any transactions that are now in the past. If so, they are applied to the
 current account file. Returns nothing.
 
 sub &Brinance::create ( $accountName, $accountNumber ): 
-   Takes two arguments: an account name and an account number. If you want to
+   Takes two arguments: an account name and an account numbe. If you want to
 create an account without a name, simply create two files (account# and
 future#). The subroutine returns as follows:
    1 => The requested account already exists, no change
@@ -61,7 +62,7 @@ future#). The subroutine returns as follows:
 
 sub &Brinance::switch_acct ( $accountNumber ):
    Takes one argument: the account number to switch to. Makes sure the requested
-account exists, and errors is not. The subroutine returns as follows:
+account exists, and errors if not. The subroutine returns as follows:
    1 => initial creation of account0, the default, success
    0 => account exists, success
   -1 => account doesn't exist, unsafe to use
@@ -74,7 +75,7 @@ module. Returns nothing.
 variables:
 
 $Brinance::current_acct:
-   The number of the current account. This is the value at the end of the
+   The number of the current account. This is the number at the end of the
 account and future files, as in account0 and future0 for
 $Brinance::current_acct = 0.  
 

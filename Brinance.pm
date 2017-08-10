@@ -29,7 +29,7 @@ package Brinance;
 require Exporter;
 
 our @ISA = ("Exporter");
-our $VERSION = "1.01";
+our $VERSION = "1.10";
 our @EXPORT_OK = qw($current_acct $now $account_dir);
 
 our $current_acct = 0;
@@ -78,7 +78,6 @@ sub balance {
 	open (ACCOUNT, ($account_dir . "account" . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . "account" . $current_acct;
 
 	my $total = 0;
-
 	for (<ACCOUNT>)
 	{
 		if (/^#/)
@@ -114,7 +113,7 @@ sub trans () {
 		return -1;
 	}
 
-	$_[0] *= 1; # to make sure its numeric
+	$_[0] += 0; # to make sure its numeric
 
 	if ( 0 == $_[0] ) # zero value transacrion
 	{
@@ -170,39 +169,38 @@ sub create () {
 }
 
 =pod
-sub futurebalance: determines balance at given future time
-  usage: &Brinance::futurebalance ( $futureDate )
-  return values:
-   undef - too few arguments, needs 1
-   else  - the future balance
+sub datedbalance: determines balance at given future time
+  usage: &Brinance::datedbalance ( $date )
+  return balance at $date:
 =cut
-sub futurebalance {
+sub datedbalance {
 	if ( 1 > @_ )
 	{
 		return undef;
 	}
 
-	open (FUTURE, ($account_dir . "future" . $current_acct)) or return undef;
-
-	my $rdate;
-	if ( $now >= $_[0] )
+	my $requestd_date = $_[0];
+	my $total;
+	my $file; # Which file to open, depending on next if
+	if ( $now >= $requestd_date )
 	{
-		return undef;
+		$file = "account";
+		$total = 0;
 	}
 	else
 	{
-		$rdate = $_[0];
+		$file = "future";
+		$total = &Brinance::balance ();
 	}
 
-	my $total = &Brinance::balance ();
+	open (FILE, ($account_dir . $file . $current_acct)) or die "Could not open $file file\n";
 	my $grabnext = 0;
 
-	while (<FUTURE>)
+	while (<FILE>)
 	{
 		if (/^#(\d{12})$/)
 		{
-			my $cdate = $1;
-			if ($cdate < $rdate)
+			if ($1 < $requestd_date)
 			{
 				$grabnext = 1; # take the next value to come up
 			}
@@ -218,21 +216,21 @@ sub futurebalance {
 		}
 	}
 
-	close FUTURE;
+	close FILE;
 	return $total;
 }
 
 =pod
-sub futuretrans: applies a transaction at specified future time
-  usage: &Brinance::futuretrans ( &futureDate, $amount, $comment )
+sub datedtrans: applies a transaction at specified future time
+  usage: &Brinance::datedtrans ( &date, $amount, $comment )
   return values:
    0 - success
   -1 - too few arguments, needs three
   -2 - zero-value transaction
-  -3 - time specified is not in the future
 =cut
-sub futuretrans {
+sub datedtrans {
 	&renow ();
+	my $file = "future";
 
 	if ( 3 > @_ )
 	{
@@ -246,26 +244,22 @@ sub futuretrans {
 	}
 	elsif ( $now >= $_[0] )
 	{ 
-		# needs to actually be in the future
-		close FUTURE;
-		return -3;
-	}
-	else
-	{
-		open (FUTURE, (">>$account_dir" . "future" . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . "future" . $current_acct;
-
-		my $date = $_[0];
-		my $amount = $_[1];
-		my $comment = $_[2];
-
-		#and roll..
-
-		print FUTURE "#$date\n";
-		print FUTURE "#$comment\n";
-		print FUTURE "$amount\n";
+		$file = "account";
 	}
 
-	close FUTURE;
+	open (FILE, (">>$account_dir" . $file . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . $file . $current_acct;
+
+	my $date = $_[0];
+	my $amount = $_[1];
+	my $comment = $_[2];
+
+	#and roll..
+
+	print FILE "#$date\n";
+	print FILE "#$comment\n";
+	print FILE "$amount\n";
+
+	close FILE;
 	return 0;
 }
 
@@ -279,14 +273,12 @@ sub update_future {
 	open (ACCOUNT, (">>$account_dir" . "account" . $current_acct)) or die "ERROR: update_future: Cannot open file " . $account_dir . "account" . $current_acct;
 	open (NEWFUTURE, (">$account_dir" . "newfuture" . $current_acct)) or die "ERROR: update_future: Cannot open file " . $account_dir . "newfuture" . $current_acct;
 
-	my @futures = {}; #we'll build this out of transactions from the ~future~
-	my $futures_i = 0;
+	my @futures = (); #we'll build this out of transactions from the ~future~
 	my $grab = 0;
 
 	# These are to build the new future file, minus the now-past transactions
-	my @nfutures = {};
-	my $nfutures_i = 0;
-	my $ngrab;
+	my @nfutures = ();
+	my $ngrab = 0;
 
 	for (<FUTURE>)
 	{
@@ -294,47 +286,47 @@ sub update_future {
 
 		if ($grab)
 		{
-			$futures[$futures_i++] = $_;
+			push (@futures, $_ );
 			$grab--;
 			next;
 		}
 
 		if ($ngrab)
 		{
-			$nfutures[$nfutures_i++] = $_;
+			push (@nfutures, $_);
 			$ngrab--;
 			next;
 		}
 
 		if (/^#\d{12}$/) # our standard date stamp
 		{
-			my (undef, $date) = split(/#/, $_);
+			my (undef, $date) = split(/^#/, $_);
 
 			if ($date <= $now)
 			{
-				$futures[$futures_i++] = $_;
+				push (@futures, $_ );
 				$grab = 2; # grab next two lines
 			}
 			else
 			{
-				$nfutures[$nfutures_i++] = $_;
+				push (@nfutures, $_);
 				$ngrab = 2;
 			}
 		}
 		elsif (/^#NAME: /)
 		{
-			$nfutures[$nfutures_i++] = $_;
+			push (@nfutures, $_);
 		}
 	}
 
-	for (my $i = 0; $i < $futures_i; $i++) 
+	foreach (@futures)
 	{
-		print ACCOUNT "$futures[$i]\n";
+		print ACCOUNT "$_\n";
 	}
 
-	for (my $i = 0; $i < $nfutures_i; $i++)
+	foreach (@nfutures)
 	{
-		print NEWFUTURE "$nfutures[$i]\n";
+		print NEWFUTURE "$_\n";
 	}
 
 	close ACCOUNT;
@@ -355,13 +347,13 @@ sub switch_acct: safety for switching account, give a failure if the account isn
   -1 - account doesn't exist, unsafe
 =cut
 sub switch_acct {
-	if ( !@_ )
+	if ( @_ )
 	{
-		$current_acct = 0;
+		$current_acct = $_[0];
 	}
 	else
 	{
-		$current_acct = $_[0];
+		$current_acct = 0;
 	}
 
 	# check to see this account exists, else fail
@@ -379,6 +371,7 @@ sub switch_acct {
 			close ACCOUNT;
 			close FUTURE;
 
+			# created the initial account
 			return 1;
 		}
 		else
@@ -389,6 +382,7 @@ sub switch_acct {
 	}
 	else
 	{
+		# safe to work with this account
 		return 0;
 	}
 }

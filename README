@@ -26,7 +26,7 @@ total 24
 -rw-r--r--    1 loco     users          64 Jun 26 16:21 future1
 
    Anyway, so on to how to use this program. First, here's the help output,
-which I'll explain a bit more:
+which I'll explain a bit more below:
 
 [loco@erebor]% brinance --help
 Usage:

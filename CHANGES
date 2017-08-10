@@ -1,3 +1,5 @@
+* 20031112 - Changed some subroutine names to be 'dated' instead of 'future'
+
 * 20031027 - Cleaned up some module API issues
              Added module documentation in a SPEC file
 
@@ -31,5 +33,5 @@ days together until we've pulled fields in the date apart
              Moderate: In fixing the last bug, uncovered another problem with
 the leap year system.. worked it out..
              
-* 20030702 - Fixed date bug when specifying days in the future (+(days)
+* 20030702 - Fixed date bug when specifying days in the future (+<days>
 notation) for futurebalance and futuretrans subs
