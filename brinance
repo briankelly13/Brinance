@@ -56,7 +56,7 @@ use Brinance;
 #		v - version
 #			$ brinance -v
 
-my $VERSION = "3.11";
+my $VERSION = "3.12";
 my @arglist;
 
 # We first pull apart all arguments and push them or their equivalent into @arglist
@@ -173,7 +173,7 @@ foreach ( @arglist )
 	if ( $skipnext ) { $skipnext--; $where++; next; }
 
 	if (/^-(\d+)$/) {
-		my $out = &Brinance::switch_acct ($1);
+		my $out = &Brinance::switch_acct ($1 + 0);
 
 		if ( 1 == $out ) {
 			print "Created account0 (this shouldn't happen here..)\n";
@@ -193,8 +193,7 @@ foreach ( @arglist )
 		&Brinance::update_future ();
 	}
 	elsif ( $_ eq "-v" ) {
-		my $mod_ver = &Brinance::version ();
-		print "Brinance module version: $mod_ver\n";
+		print "Brinance module version: " . &Brinance::version() . "\n";
 		print "brinance CLI version: $VERSION\n";
 		print "\n";
 		print "Copyright (C) 2003 Brian Kelly locoburger\@netscape.net\n";

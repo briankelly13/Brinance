@@ -36,15 +36,15 @@ Usage:
   Accepted args:
      -b --balance -> show balance
         $ brinance -b
-     -B --futurebalance -> show future balance
+     -B --datedbalance -> show dated balance
         $ brinance -B 200306271200
      -c --credit -> credit
         $ brinance -c <amount> <comment>
-     -C --futurecredit -> future credit
+     -C --datedcredit -> dated credit
         $ brinance -C 200306271200 <amount> <comment>
      -d --debit -> debit
         $ brinance -d <amount> <comment>
-     -D --futuredebit -> future debit
+     -D --dateddebit -> dated debit
         $ brinance -D 200306271200 <amount> <comment>
      -# -> (as in, a number) all following arguments refer to this account
         $ brinance -2 <action>
@@ -69,18 +69,18 @@ Balance: 777.31
 
       which would give the balance on accounts 0 (the default) and 1.
 
-   -B --futurebalance
-      Shows the balance at a specified time in the future. The date can be
-indicated by either giving a date stamp in the format %C%y%m%d%H%M (out to the
-minute, all bunched together with no punctuation, padded values so that there
-are a total of 12 digits), or by how many full days in the future by putting a
-'+' in front of the number, as so..
+   -B --datedbalance
+      Shows the balance at a specified time. The date can be indicated by either
+giving a date stamp in the format %C%y%m%d%H%M (out to the minute, all bunched
+together with no punctuation, padded values so that there are a total of 12
+digits), or by how many full days in the future (only for the future) by putting
+a '+' in front of the number, as so..
 
 [loco@erebor]% brinance -b -B +100 -1 -B 200307190000
 Balance: 136.65
-account0 future balance: 823.35
+account0 dated balance: 823.35
 Now working with account1
-account1 future balance: 883.74
+account1 dated balance: 883.74
 
       If the date specified in the long format is actually in the past, brinance
 will give you an error. No trickiness..
@@ -96,9 +96,9 @@ Balance after credit: 69.56
 argument, so if you've got spaces or special characters, you need to quote them
 however you do that with your shell.
 
-   -C --future credit
-      Post a credit in the future. Just like a normal credit, but you need to
-specify a future date (in either format listed above) before the amount.
+   -C --datedcredit
+      Post a credit at a specified date. Just like a normal credit, but you need
+to specify a date (in either format listed above) before the amount.
 
 [loco@erebor]% brinance -C 200308080000 100 "birthday money"
 
@@ -106,8 +106,8 @@ specify a future date (in either format listed above) before the amount.
       Just like a credit, but the amount is negated before it's recorded. Same
 syntax as '-c'.
 
-   -D --futuredebit
-      Just what you'd think, a future debit. Same syntax as '-C'.
+   -D --dateddebit
+      Just what you'd think, a dated debit. Same syntax as '-C'.
 
    -{#}
       Switch the active account to this numbered account. That account must

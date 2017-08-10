@@ -1,3 +1,7 @@
+* 20031205 - Fixed a serious bug with account numbers. If you put a leading zero
+on the account number ("brinance -00 -b") it could erase all transactions in the
+file. Very simple fix.
+
 * 20031112 - Changed some subroutine names to be 'dated' instead of 'future'
 
 * 20031027 - Cleaned up some module API issues

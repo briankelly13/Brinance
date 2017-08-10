@@ -32,7 +32,7 @@ non-number was passed as the transaction amount
 
 sub &Brinance::datedbalance ( $date ):
    Takes one argument: a date in 12-digit format (YYYYMMDDHHmm, e.g.
-200310271645). Calculates the balance for the current account at the specified
+200306271645). Calculates the balance for the current account at the specified
 date. The calling code must be careful to supply a properly formatted date, or
 the output may be unreliable. The subroutine returns as follows:
    0    => dated balance is 0, or there are not enough arguments
@@ -40,7 +40,7 @@ the output may be unreliable. The subroutine returns as follows:
 
 sub &Brinance::datedtrans ( &date, $amount, $comment ):
    Takes three arguments: a date in 12-digit format (YYYYMMDDHHmm, e.g.
-200310271645), a transaction amount and a transaction comment. Applies the
+200306271645), a transaction amount and a transaction comment. Applies the
 transaction at the specified date. The subroutine returns as follows:
    0 => success
   -1 => Too few arguments (three are required)
