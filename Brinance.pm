@@ -29,7 +29,7 @@ package Brinance;
 require Exporter;
 
 our @ISA = ("Exporter");
-our $VERSION = "1.11";
+our $VERSION = "1.12";
 our @EXPORT_OK = qw($current_acct $now $account_dir);
 
 our $current_acct = 0;
@@ -147,7 +147,7 @@ sub create () {
 	}
 
 	my $acct_name = $_[0];
-	my $acct_num = $_[1];
+	my $acct_num = 1 * $_[1]; #Make it numeric
 
 	if (-e ("$account_dir" . "account" . $acct_num))
 	{

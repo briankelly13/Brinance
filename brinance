@@ -56,7 +56,7 @@ use Brinance;
 #		v - version
 #			$ brinance -v
 
-my $VERSION = "3.12";
+my $VERSION = "3.13";
 my @arglist;
 
 # We first pull apart all arguments and push them or their equivalent into @arglist
@@ -196,7 +196,7 @@ foreach ( @arglist )
 		print "Brinance module version: " . &Brinance::version() . "\n";
 		print "brinance CLI version: $VERSION\n";
 		print "\n";
-		print "Copyright (C) 2003 Brian Kelly locoburger\@netscape.net\n";
+		print "Copyright (C) 2003,2004 Brian Kelly locoburger\@netscape.net\n";
 		print "brinance comes with ABSOLUTELY NO WARRANTY\n";
 		print "This is free software, and you are welcome to redistribute it\n";
 		print "under certain conditions. See LICENSE for details.\n";
@@ -235,7 +235,7 @@ foreach ( @arglist )
 				$out = &Brinance::datedbalance ( $arglist[$where+1] );
 			}
 			else {
-				print "ERROR: Invalid date format for dated balance\n";
+				print "ERROR: date not in 12-digit or +<days> format\n";
 				&usage (1);
 			}
 
@@ -332,6 +332,8 @@ sub usage () {
      -v --version -> version
         \$ $exec -v\n";
 
+	print "\nSee README for more information.\n";
+
 	exit ($_[0]);
 }
 
@@ -409,6 +411,10 @@ sub CLIdatedtrans {
 		}
 		elsif ( $arglist[$where+1] =~ /^(\d{12})$/ ) {
 			$date_mod = $1;
+		}
+		else { # date is not formatted properly
+			print "ERROR: date not in 12-digit or +<days> format\n";
+			&usage (1);
 		}
 
 		my $amount;

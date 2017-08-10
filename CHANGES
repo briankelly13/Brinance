@@ -1,6 +1,11 @@
+* 20040203 - Fixed an input check for dated transactions. Improperly formed
+dates were causing trouble.
+             Minor tweak in the module code to make sure we get a number
+
 * 20031205 - Fixed a serious bug with account numbers. If you put a leading zero
 on the account number ("brinance -00 -b") it could erase all transactions in the
-file. Very simple fix.
+file. Very simple fix. As a side effect, leading 0's on account numbers are
+ignored. (e.g. account 007 is the same as account 7.)
 
 * 20031112 - Changed some subroutine names to be 'dated' instead of 'future'
 
