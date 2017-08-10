@@ -1,2 +1,10 @@
+* 20030807 - Minor: using strict pragma now, and had to fix some things for
+that
+             Moderate: Fixed another bug in +<days> system if you added a number
+of days so that it would carry over into the month column. Now we don't add the
+days together until we've pulled fields in the date apart
+             Moderate: In fixing the last bug, uncovered another problem with
+the leap year system.. worked it out..
 
-* 20030702 - Fixed date bug when specifying days in the future (+(days) notation) for futurebalance and futuretrans subs
+* 20030702 - Fixed date bug when specifying days in the future (+(days)
+	notation) for futurebalance and futuretrans subs
