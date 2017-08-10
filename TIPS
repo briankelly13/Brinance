@@ -8,7 +8,7 @@ wouldn't need any built-in functions for reporting. The intent is that you can
 use the standard UNIX command line tools to pull whatever information you like
 out of the brinance account files.
    First off, you should know about the GNU extensions to grep, particularly -A
-and -B. If you're in the know, move on. You specify how many line to display
+and -B. If you're in the know, move on. You specify how many lines to display
 BEFORE the match with -B, and how many lines to display AFTER with -A. So, you
 can use a command line like so:
 

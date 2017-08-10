@@ -2,7 +2,37 @@
  How to install brinance
 =========================
 
-   Throw the brinance perl script in your path somewhere and create a
-'.brinance' directory in your home directory for your data files to sit. That's
-it!
+   Easy way: run 'make install'.
+
+   More..
+   Unfortunately, with the modularization of brinance, it's gotten slightly
+(only slightly) more complicated to install. Now we have two files to contend
+with. Your 'brinance' executable still goes wherever you like in your path. I
+put it in ~/exe/ with the rest of my own executables.
+
+$ cp brinance ~/exe/
+$ chmod 555 ~/exe/brinance
+
+   You will also need a directory in your home directory for brinance to work
+with its account files. By default, that's ~/.brinance/.
+
+$ mkdir ~/.brinance/
+
+   Now we get tricky. Brinance.pm, the module code, needs to go somewhere in
+your Perl module path (the @INC variable in Perl). By default, we're keeping
+this all local and single-user, so brinance allows the module code to be in your
+path anywhere, or in a lib directory off your accounts directory.
+
+$ mkdir ~/.brinance/lib/
+$ cp Brinance.pm ~/.brinance/lib/
+$ chmod 444 ~/.brinance/lib/Brinance.pm
+
+   If you would rather put it somewhere so everyone can get to it, I suggest
+/usr/lib/perl5/{Perl Version}/. This module doesn't quite fit the CPAN standards
+and conventions, though, so it doesn't fit well into any of their categories,
+but it will function if you just plop the file in that directory. Do it if you
+like.
+   Running 'make install' does all these things, in a default type way. The
+makefile uses ~/bin/ rather than ~/exe/ (that's just my thing), but otherwise
+it's the same. The point is, do it however you like.
 

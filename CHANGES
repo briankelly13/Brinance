@@ -1,4 +1,12 @@
-* 20031021 - Minor: grab the user's home dir much more cleanly and Perl-ly
+* 20031021 - Got the module complete functionally. Final testing. The
+command-line interface has an improved option system. It now accepts option
+groupings (e.g. -b1b instead of -b -1 -b), but the old way still works
+fine.
+             Changed the version number scheme slightly to be more
+CPAN-friendly.
+
+* 20030917 - Beginnings of making it a module. Writing a new command-line
+interface to test out the module.
 
 * 20030913 - Trivial: cleaned up comments and added a couple notes of
 documentation. Final cleanups before tearing it apart again to modularize
@@ -17,6 +25,6 @@ of days so that it would carry over into the month column. Now we don't add the
 days together until we've pulled fields in the date apart
              Moderate: In fixing the last bug, uncovered another problem with
 the leap year system.. worked it out..
-
+             
 * 20030702 - Fixed date bug when specifying days in the future (+(days)
 notation) for futurebalance and futuretrans subs

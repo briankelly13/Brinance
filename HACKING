@@ -21,7 +21,7 @@ same. It's pretty much this, in bastardized BNF:
 
    The terminals above are as follows, but again, my BNF is rusty:
 <account name> = (free form text, but no new lines)
-<date string> = (0-9]){12}
+<date string> = ([0-9]){12}
 <description> = (free form text, but no new lines)
 <transaction amount> = [-](0-9)*[.](0-9)*
 

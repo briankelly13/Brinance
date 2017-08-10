@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # This software released under the terms of the GNU General Public License 2.0
 #
@@ -17,12 +17,18 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# brinance - Perl UNIX command-line simple personal finance planner/tracker
+# brinance - simple UNIX command-line interface to Brinance Perl personal
+#            finance planner tracker
 #
-#		tabstop = 3
+#		tabstop = 3		(These two lines should line up)
+#     tabstop = 3    (These two lines should line up)
 
 use warnings;
 use strict;
+
+use lib "$ENV{HOME}/.brinance/lib";
+use Brinance;
+
 
 # Parse agruments, which in turn, call subroutines..
 #
@@ -50,218 +56,261 @@ use strict;
 #		v - version
 #			$ brinance -v
 
+my $VERSION = "3.00";
+my @arglist;
+
+# We first pull apart all arguments and push them or their equivalent into @arglist
+foreach ( @ARGV )
+{
+	if ( /^--/ ) # GNU style option
+	{
+		if    ( $_ eq "--help" ) {
+			push ( @arglist, "h" );
+		}
+		elsif ( $_ eq "--version" ) {
+			push ( @arglist, "v" );
+		}
+		elsif ( $_ eq "--credit" ) {
+			push ( @arglist, "c" );
+		}
+		elsif ( $_ eq "--debit" ) {
+			push ( @arglist, "d" );
+		}
+		elsif ( $_ eq "--balance" ) {
+			push ( @arglist, "b" );
+		}
+		elsif ( $_ eq "--futurecredit" ) {
+			push ( @arglist, "C" );
+		}
+		elsif ( $_ eq "--futuredebit" ) {
+			push ( @arglist, "D" );
+		}
+		elsif ( $_ eq "--futurebalance" ) {
+			push ( @arglist, "B" );
+		}
+		elsif ( $_ eq "--name" ) {
+			push ( @arglist, "n" );
+		}
+		elsif ( $_ eq "--create" ) {
+			push ( @arglist, "r" );
+		}
+		else {
+			print "Unrecognized GNU style option: $_\n";
+			&usage (1);
+		}
+	}
+	elsif ( /^-/ ) # regular group of options
+	{
+		my @revlist = (); # reversed list
+		my @tmplist = (); # reversed reveresed list
+		my @donelist = (); # and now with the numbers all bunched together
+		my $work = "";
+		# This pulls it apart in reverse order
+		while ( $_ ne "-" )
+		{
+			$work = chop $_;
+			push ( @revlist, $work );
+		}
+
+		my $j = 0;
+		for ( my $i = (@revlist-1); $i >= 0; $i-- )
+		{
+			$tmplist[$j++] = $revlist[$i];
+		}
+
+		my $num = "";
+		foreach (@tmplist)
+		{
+			if (/\d/)
+			{
+				$num .= $_;
+			}
+			else
+			{
+				if ($num ne "")
+				{
+					push ( @donelist, $num );
+					$num = "";
+				}
+				push ( @donelist, $_ );
+			}
+		}
+
+		if ($num ne "")
+		{
+			push ( @donelist, $num );
+		}
+
+		foreach (@donelist)
+		{
+			push ( @arglist, $_ );
+		}
+	}
+	else # not starting with -
+	{
+		push ( @arglist, $_ );
+	}
+}
+
+$Brinance::current_acct = 0;
+&Brinance::switch_acct (); # sets us up to use account0
+&Brinance::update_future (); # sync with future transactions in account0
+
+# helper vars for processing args
 my $skipnext = 0;
-my $current_acct = 0;
 my $where = 0;
 my $credit = 0; #Is the transaction a credit? Debit otherwise..
 
-my $now = `date +%C%y%m%d%H%M`;
-chomp $now;
-
-$account_dir = "$ENV{HOME}/.brinance/";
-
-switch_acct (); # sets us up to use account0
-update_future (); # sync with future transactions
-
-if ( -1 == $#ARGV ) {
-	print "Need arguments.\nUse --help for help\n\n";
-	print "brinance is free software without ANY warranty\n" .
-			"distributed under the terms of the GNU GPL 2.0\n";
-	exit ();
+if ( 0 == @arglist )
+{
+	print "Need arguments.\nUse --help for more help\n";
 }
 
-# do it now!
-main ();
+# Process the args
+foreach ( @arglist )
+{
+	if ( $skipnext ) { $skipnext--; $where++; next; }
 
-=pod
-sub main: process our arguments, and also drive execution
-=cut
-sub main {
-	foreach (@ARGV) {
-		if ($skipnext) { $where++; $skipnext--; next; }
+	if (/^(\d+)$/) {
+		$Brinance::current_acct = $1;
+		my $out = &Brinance::switch_acct ();
 
-		elsif ($_ eq "-h" or $_ eq "--help") {
-			usage ();
+		if ( 1 == $out ) {
+			print "Now working with account$Brinance::current_acct\n";
 		}
-		elsif ($_ eq "-v" or $_ eq "--version") {
-			version ();
+		elsif ( 0 == $out ) {
+			print "Created account0 (this shouldn't happen here..)\n";
 		}
-		elsif ($_ eq "-n" or $_ eq "--name") {
-			if (my $out = getName ())
-			{
-				print "account$current_acct name: $out\n";
-			}
-			else
-			{
-				print "No name for account$current_acct\n";
-			}
+		elsif ( -1 == $out ) {
+			print "ERROR: account$Brinance::current_acct doesn't exist.\nUse -r or --create\n";
+			&usage (1);
 		}
-		elsif (/^\-[0-9]+$/) {
-			$current_acct = -1 * $_; # effectively strips the '-', and gracefully sets invalid values to 0
-			if (-1 == switch_acct ())
-			{
-				print "ERROR: account$current_acct doesn't exist\ncreate first using -r\n";
-				usage ();
-			}
-			update_future ();
-			print "Now working with account$current_acct\n";
+		else {
+			print "ERROR: &Brinance::switch_acct undefined output. Check your data. Exitting..\n";
+			exit (1);
 		}
-		elsif ($_ eq "-b" or $_ eq "--balance") {
-			print "Balance: " . sprintf ("%.2f", balance ()) . "\n";;
-		}
-		elsif ($_ eq "-c" or $_ eq "--credit") {
-			$credit = 1;
-			my $out = trans ();
-			my $bal = sprintf ("%.2f", balance ());
 
-			if ( 0 == $out )
+		&Brinance::update_future ();
+	}
+	elsif ( $_ eq "v" ) {
+		my $mod_ver = &Brinance::version ();
+		print "Brinance module version: $mod_ver\n";
+		print "brinance CLI version: $VERSION\n";
+	}
+	elsif ( $_ eq "h" ) {
+		&usage (0);
+	}
+	elsif ( $_ eq "b" ) {
+		print "Balance: " . sprintf ("%.2f", Brinance::balance ()) . "\n";
+	}
+	elsif ( $_ eq "c" ) {
+		$credit = 1;
+		&CLItrans ();
+	}
+	elsif ( $_ eq "d" ) {
+		$credit = 0;
+		&CLItrans ();
+	}
+	elsif ( $_ eq "C" ) {
+		$credit = 1;
+		&CLIfuturetrans ();
+	}
+	elsif ( $_ eq "D" ) {
+		$credit = 0;
+		&CLIfuturetrans ();
+	}
+	elsif ( $_ eq "B" ) {
+		if ( $arglist[$where+1] )
+		{
+			my $out;
+
+			if ($arglist[$where+1] =~ /^\+(\d+)$/) {
+				$out = &Brinance::futurebalance ( &addDate ($Brinance::now, $1) );
+			}
+			elsif ($arglist[$where+1] =~ /^\d{12}$/) {
+				$out = &Brinance::futurebalance ( $arglist[$where+1] );
+			}
+			else {
+				print "ERROR: Invalid date format for future balance\n";
+				&usage (1);
+			}
+
+			if ( "x" eq $out ) {
+				print "ERROR: invalid argument to Brinance::futurebalance()\n";
+				&usage (1);
+			}
+			else {
+				# success
+				print "account" . $Brinance::current_acct . " future balance: " . sprintf ("%.2f", $out) . "\n";
+			}
+		}
+		else {
+			print "ERROR: future balance requires an argument\n";
+			&usage (1);
+		}
+		$skipnext = 1;
+	}
+	elsif ( $_ eq "n" ) {
+		if ( my $out = &Brinance::getName () )
+		{
+			print "account$Brinance::current_acct name: $out\n";
+		}
+		else
+		{
+			print "No name for account$Brinance::current_acct\n";
+		}
+	}
+	elsif ( $_ eq "r" ) {
+		if ( $arglist[$where+2] && $arglist[$where+1] )
+		{
+			my $out = &Brinance::create ( $arglist[$where+1], $arglist[$where+2] );
+
+			if ( 1 == $out )
 			{
-				print "Balance after credit: $bal\n";
-				$skipnext = 2; # eat the next next two arguments
+				# success
+				print "account$arglist[$where+2] created successfully\n";
+			}
+			elsif ( 0 == $out )
+			{
+				# already exists
+				print "account$arglist[$where+2] already exists\n";
+				exit (0);
 			}
 			elsif ( -1 == $out )
 			{
-				print "ERROR: Too few arguments to trans()\n";
-				usage ();
-			}
-			elsif ( -2 == $out )
-			{
-				print "Ignoring 0-value transaction: $ARGV[$where+2]\n";
+				# too few
 			}
 			else
 			{
-				print "ERROR: unrecognized error in trans()\n";
+				print "ERROR: undefined output from Brinance::getName(); Check your account files..\n";
+				print "Exitting..\n";
+				exit (0);
 			}
-		}
-		elsif ($_ eq "-d" or $_ eq "--debit") {
-			$credit = 0;
-			my $out = trans ();
-			my $bal = sprintf ("%.2f", balance ());
 
-			if (0 == $out)
-			{
-				# successful
-				print "Balance after debit: $bal\n";
-				$skipnext = 2; # eat the next next two arguments
-			}
-			elsif (-1 == $out)
-			{
-				print "ERROR: Too few arguments to trans()\n";
-				usage ();
-			}
-			elsif (-2 == $out)
-			{
-				print "Ignoring 0-value transaction: $ARGV[$where+2]\n";
-			}
-			else
-			{
-				print "ERROR: unrecognized error in trans()\n";
-			}
-		}
-		elsif ($_ eq "-r" or $_ eq "--create") {
-			my $out = create ();
-
-			if (1 == $out)
-			{
-				print "account$ARGV[$where+2] created successfully\n";
-				$skipnext = 2;
-			}
-			elsif (0 == $out)
-			{
-				print "ERROR: account$ARGV[$where+2] already exists\n";
-			}
-			elsif (-1 == $out)
-			{
-				print "ERROR: Too few arguments to create ()\n";
-				usage ();
-			}
 			$skipnext = 2;
 		}
-		elsif ($_ eq "-B" or $_ eq "--futurebalance") {
-			my $out = futurebalance ();
-
-			if (-1 == $out)
-			{
-				print "ERROR: Too few arguments to futurebalance ()\n";
-				usage ();
-			}
-			elsif (0 == $out)
-			{
-				print "ERROR: Unable to calculate future balance\n";
-			}
-			else
-			{
-				$out = sprintf ("%.2f", $out);
-				print "account$current_acct future balance: $out\n";
-				$skipnext = 1;
-			}
+		else
+		{
+			print "ERROR: too few arguments to create\n";
 		}
-		elsif ($_ eq "-C" or $_ eq "--futurecredit") {
-			$credit = 1;
-			my $out = futuretrans ();
-
-			if (0 == $out)
-			{
-				#success
-				$skipnext = 3;
-			}
-			elsif (-1 == $out)
-			{
-				print "ERROR: Too few arguments to futuretrans ()\n";
-				usage ();
-			}
-			elsif (-2 == $out)
-			{
-				print "Ignoring 0-value transaction: $ARGV[$where+3]\n";
-			}
-			elsif (-3 == $out)
-			{
-				print "ERROR: Must specify a *future* date in the format YYYYMMDDHHmm\n";
-				print "It is now $now\n";
-			}
-		}
-		elsif ($_ eq "-D" or $_ eq "--futuredebit") {
-			$credit = 0;
-			my $out = futuretrans ();
-
-			if (0 == $out)
-			{
-				#success
-				$skipnext = 3;
-			}
-			elsif (-1 == $out)
-			{
-				print "ERROR: Too few arguments to futuretrans ()\n";
-				usage ();
-			}
-			elsif (-2 == $out)
-			{
-				print "Ignoring 0-value transaction: $ARGV[$where+3]\n";
-			}
-			elsif (-3 == $out)
-			{
-				print "ERROR: Must specify a *future* date in the format YYYYMMDDHHmm\n";
-				print "It is now $now\n";
-			}
-		}
-
-		else {
-			print "Unrecognized argument: $_\n";
-			usage ();
-		}
-
-		$where++;
 	}
-} # END main ()
+	else {
+		# unrecognized option/argument
+		print "Unrecognized option: '$_'\n";
+		&usage (1);
+	}
+
+	$where++;
+}
 
 =pod
 sub usage: shows how to invoke the command-line program
 =cut
-sub usage {
+sub usage () {
 	my $exec = "brinance";
 
 	print "Usage:\n
-  \$ $exec <args>\n
+	\$ $exec <args>\n
   Accepted args:
      -b --balance -> show balance
         \$ $exec -b
@@ -286,379 +335,133 @@ sub usage {
      -v --version -> version
         \$ $exec -v\n";
 
-	exit (0);
+	exit ($_[0]);
 }
 
-=pod
-sub version: prints current version of command line program
-=cut
-sub version {
-	print "brinance version 2.4\n";
-}
+sub CLItrans {
+	if ( 0 == $arglist[$where+1] ) { $arglist[$where+1] .= ".0"; }
 
-=pod
-sub getName: returns the name of the current account, or undefined if there is no valid name
-=cut
-sub getName {
-	open (ACCOUNT, ($account_dir . "account" . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . "account" . $current_acct;
-
-	#only look for it on the first line
-	my $top = <ACCOUNT>;
-	my $title = undef;
-
-	if ($top =~ "^#NAME: ")
-	{
-		(undef, $title) = split(/: /, $top);
-		chomp $title;
-	}
-
-	close ACCOUNT;
-	return $title;
-}
-
-=pod
-sub balance: returns the balance of the current account
-=cut
-sub balance {
-	open (ACCOUNT, ($account_dir . "account" . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . "account" . $current_acct;
-
-	my $total = 0;
-
-	for (<ACCOUNT>)
-	{
-		if (/^#/) # doesn't affect calculation
+	if ( $arglist[$where+2] && $arglist[$where+1] )
+	{  
+		my $comment = $arglist[$where+2];
+		my $amount;
+		if ( $credit )
 		{
-			#commented line
+			$amount = 1 * $arglist[$where+1];
 		}
 		else
 		{
-			$total += $_;
+			$amount = -1 * $arglist[$where+1];
 		}
-	}
 
-	close ACCOUNT;
-	return $total;
-}
+		my $out = &Brinance::trans ( $amount, $comment );
 
-=pod
-sub trans: applies a transaction to the current account, either credit or debit
-  return values:
-   0 - success
-  -1 - too few arguments (needs two)
-  -2 - zero value transaction, which could mean a non-number was specified as the transaction amount
-=cut
-sub trans {
-	open (ACCOUNT, (">>$account_dir" . "account" . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . "account" . $current_acct;
-
-	if ( ($where+2) > $#ARGV )
-	{
-		return -1;
-	}
-
-	if ($credit) # negate if it's a debit, which will also zero a non-number.. good..
-	{
-		$ARGV[$where+1] = 1 * $ARGV[$where+1];
-	}
-	else
-	{
-		$ARGV[$where+1] = -1 * $ARGV[$where+1];
-	}
-
-	if ( 0 == $ARGV[$where+1] )
-	{
-		return -2;
-	}
-	else
-	{
-		# yup, do it.. the guts
-		my $amount = $ARGV[$where+1];
-		my $comment = $ARGV[$where+2];
-
-		print ACCOUNT "#$now\n";
-		print ACCOUNT "#$comment\n";
-		print ACCOUNT "$amount\n";
-	}
-
-	close ACCOUNT;
-	return 0;
-}
-
-=pod
-sub create: create a new account
-  return values:
-   1 - success
-   0 - account already exists, no change
-  -1 - too few arguments, needs 2
-=cut
-sub create {
-	my $worked;
-
-	if ( ($where+2) > $#ARGV )
-	{
-		return -1;
-	}
-
-	my $acct_name = $ARGV[$where+1];
-	my $acct_num = $ARGV[$where+2];
-
-	if (-e ("$account_dir" . "account" . $acct_num))
-	{
-		$worked = 0;
-	}
-	else
-	{
-		open (ACCOUNT, (">$account_dir" . "account" . $acct_num)) or die "couldn't create account file\n";
-		open (FUTURE, (">$account_dir" . "future" . $acct_num)) or die "couldn't create future file\n";
-
-		print ACCOUNT "#NAME: $acct_name\n";
-		print FUTURE "#NAME: $acct_name\n";
-
-		close ACCOUNT;
-		close FUTURE;
-
-		$worked = 1;
-	}
-	return $worked;
-}
-
-=pod
-sub futurebalance: determines balance at given future time
-  return values:
-  -1 - too few arguments, needs 1
-  else - the future balance
-=cut
-sub futurebalance {
-#FIXME: What if the balance is -1?
-	if ( ($where+1) > $#ARGV )
-	{
-		return -1;
-	}
-
-	open (FUTURE, ($account_dir . "future" . $current_acct)) or return 0;
-
-	# date request can be one of two formats
-	# either 12 number date or
-	# +<days> in the future
-
-	my $rdate;
-
-	if ($ARGV[$where+1] =~ /^\+\d*/)
-	{
-		my (undef, $plus_days) = split (/\+/, $ARGV[$where+1]);
-		$rdate = addDate ($now, $plus_days);
-	}
-	else
-	{
-		$rdate = $ARGV[$where+1];
-	}
-
-	my $total = balance ();
-	my $grabnext = 0;
-
-	while (<FUTURE>)
-	{
-		if (/^#\d{12}$/)
+		if ( 0 == $out )
 		{
-			my (undef, $cdate) = split (/#/, $_);
-			chomp $cdate;
-			if ($cdate < $rdate)
+			# success
+			my $bal = sprintf ("%.2f", &Brinance::balance ());
+
+			if ( $credit )
 			{
-				$grabnext = 1; # take the next value to come up
-			}
-		}
-		elsif (/^#/)
-		{
-			# must be a transaction comment, ignore it
-		}
-		elsif ($grabnext) # it's not a comment, and we've been told to take next value
-		{
-			$total += $_;
-			$grabnext = 0;
-		}
-	}
-
-	close FUTURE;
-	return $total;
-}
-
-=pod
-sub futuretrans: applies a transaction at specified future time
-  return values:
-  -1 - too few arguments, needs three
-  -2 - zero-value transaction
-  -3 - time specified is not in the future
-=cut
-sub futuretrans {
-	if ( ($where+3) > $#ARGV )
-	{
-		# too few arguments
-		return -1;
-	}
-
-	if ($credit)
-	{
-		$ARGV[$where+2] = 1 * $ARGV[$where+2];
-	}
-	else
-	{
-		$ARGV[$where+2] = -1 * $ARGV[$where+2];
-	}
-
-	open (FUTURE, (">>$account_dir" . "future" . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . "future" . $current_acct;
-
-	if ( 0 == $ARGV[$where+2] )
-	{
-		# 0-value transaction
-		return -2;
-	}
-	else
-	{
-		#may wax roll
-
-		my $date;
-		# support +<days> for specifying date
-		if ($ARGV[$where+1] =~ /^\+\d*/)
-		{
-			my (undef, $plus_days) = split (/\+/, $ARGV[$where+1]);
-			$date = addDate ($now, $plus_days);
-		}
-		else
-		{
-			$date = $ARGV[$where+1];
-		}
-
-		my $amount = $ARGV[$where+2];
-		my $comment = $ARGV[$where+3];
-
-		if ( $now >= $date )
-		{
-			# needs to actually be in the future
-			return -3;
-		}
-		else
-		{
-			#and roll..
-
-			print FUTURE "#$date\n";
-			print FUTURE "#$comment\n";
-			print FUTURE "$amount\n";
-		}
-	}
-
-	close FUTURE;
-	return 0;
-}
-
-=pod
-sub update_future: called before working with an account to apply future transactions if they are now passed
-=cut
-sub update_future {
-	open (FUTURE, ($account_dir . "future" . $current_acct)) or die "ERROR: update_future: Cannot open file " . $account_dir . "future" . $current_acct;
-	open (ACCOUNT, (">>$account_dir" . "account" . $current_acct)) or die "ERROR: update_future: Cannot open file " . $account_dir . "account" . $current_acct;
-	open (NEWFUTURE, (">$account_dir" . "newfuture" . $current_acct)) or die "ERROR: update_future: Cannot open file " . $account_dir . "newfuture" . $current_acct;
-
-	my @futures = {}; #we'll build this out of transactions from the ~future~
-	my $futures_i = 0;
-	my $grab = 0;
-
-	# These are to build the new future file, minus the now-past transactions
-	my @nfutures = {};
-	my $nfutures_i = 0;
-	my $ngrab;
-
-	for (<FUTURE>)
-	{
-		chomp;
-
-		if ($grab)
-		{
-			$futures[$futures_i++] = $_;
-			$grab--;
-			next;
-		}
-
-		if ($ngrab)
-		{
-			$nfutures[$nfutures_i++] = $_;
-			$ngrab--;
-			next;
-		}
-
-		if (/^#\d{12}$/) # our standard date stamp
-		{
-			my (undef, $date) = split(/#/, $_);
-
-			if ($date <= $now)
-			{
-				$futures[$futures_i++] = $_;
-				$grab = 2; # grab next two lines
+				print "Balance after credit: $bal\n";
 			}
 			else
 			{
-				$nfutures[$nfutures_i++] = $_;
-				$ngrab = 2;
+				print "Balance after debit: $bal\n";
 			}
+
+			# skip next two args
+			$skipnext = 2;
 		}
-		elsif (/^#NAME: /)
+		elsif ( -1 == $out )
 		{
-			$nfutures[$nfutures_i++] = $_;
+			# too few args
+			print "ERROR: too few arguments to Brinance::trans()\n";
+			&usage (1);
 		}
-	}
-
-	for (my $i = 0; $i < $futures_i; $i++)
-	{
-		print ACCOUNT "$futures[$i]\n";
-	}
-
-	for (my $i = 0; $i < $nfutures_i; $i++)
-	{
-		print NEWFUTURE "$nfutures[$i]\n";
-	}
-
-	close ACCOUNT;
-	close FUTURE;
-	close NEWFUTURE;
-
-	my $src = ($account_dir . "newfuture" . $current_acct);
-	my $trg = ($account_dir . "future" . $current_acct);
-
-	system ("mv -f $src $trg");
-}
-
-=pod
-sub switch_acct: safety for switching account, give a failure if the account isn't initialized
-  return values:
-	1 - safe to switch, success
-   0 - created account0; won't auto-create any other account
-  -1 - account doesn't exist, unsafe
-=cut
-sub switch_acct {
-	# check to see this account exists, else fail
-	if (!-e ($account_dir . "account" . $current_acct)) # doesn't exist
-	{
-		# if 0 doesn't exist, create it, calling it default;
-		if ( 0 == $current_acct )
+		elsif ( -2 == $out )
 		{
-			open (ACCOUNT, (">$account_dir" . "account0")) or die "couldn't create account file\n";
-			open (FUTURE, (">$account_dir" . "future0")) or die "couldn't create future file\n";
-
-			print ACCOUNT "#NAME: default\n";
-			print FUTURE "#NAME: default\n";
-
-			close ACCOUNT;
-			close FUTURE;
-
-			return 0;
+			# zero trans
+			print "ERROR: zero-value transaction\n";
+			&usage (1);
 		}
 		else
 		{
-			# error out
-			return -1;
+			print "ERROR: undefined output from Brinance::trans(); Check your account files..\n";
+			print "Exitting..\n";
+			exit (0);
+		}
+	}  
+	else
+	{  
+		print "ERROR: too few arguments for a transaction\n";
+		&usage (1);
+	}  
+}
+
+sub CLIfuturetrans {
+	if ( 0 == $arglist[$where+1] ) { $arglist[$where+1] .= ".0"; }
+
+	if ( $arglist[$where+3] && $arglist[$where+2] && $arglist[$where+1] )
+	{
+		my $comment = $arglist[$where+3];
+		my $date_mod;
+
+		if    ( $arglist[$where+1] =~ /^\+(\d+)$/ ) {
+			$date_mod = &addDate ( $Brinance::now, $1 );
+		}
+		elsif ( $arglist[$where+1] =~ /^(\d{12})$/ ) {
+			$date_mod = $1;
+		}
+
+		my $amount;
+		if ( $credit )
+		{
+			$amount = 1 * $arglist[$where+2];
+		}
+		else
+		{
+			$amount = -1 * $arglist[$where+2];
+		}
+
+		my $out = &Brinance::futuretrans ( $date_mod, $amount, $comment );
+
+		if ( 0 == $out )
+		{
+			# success
+			print "Future transaction applied\n";
+
+			$skipnext = 3;
+		}
+		elsif ( -1 == $out )
+		{
+			# too few args
+			print "ERROR: too few arguments to Brinance::futuretrans()\n";
+			&usage (1);
+		}
+		elsif ( -2 == $out )
+		{
+			# zero trans
+			print "ERROR: zero-value transaction\n";
+			&usage (1);
+		}
+		elsif ( -3 == $out )
+		{
+			# invalid date format
+			print "ERROR: date specified either invalid or in the past\n";
+			&usage (1);
+		}
+		else
+		{
+			print "ERROR: undefined output from Brinance::futuretrans(); Check your account files..\n";
+			print "Exitting..\n";
+			exit (0);
 		}
 	}
 	else
 	{
-		return 1;
+		print "ERROR: too few arguments for a future transaction\n";
+		&usage (1);
 	}
 }
 
@@ -667,18 +470,16 @@ sub addDate: adds a second argument (number of days) to the first argument (a wh
 	accounts for different length months and leap-year, but not leap-leap years (ie 2200)
 =cut
 sub addDate (){
-	my ($year, undef) = split (/........$/, $_[0]);
-	my (undef, $min) = split (/^..../, $_[0]);
-	#$min ends up being just the minutes, so we're calling it that from the beginning.
+	$_ = $_[0];
+	my $added = $_[1];
 
-	my ($month, undef) = split (/......$/, $min);
-	(undef, $min) = split (/^../, $min);
+	/(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)/;
 
-	my ($day, undef) = split (/....$/, $min);
-	(undef, $min) = split (/^../, $min);
-
-	my ($hour, undef) = split (/..$/, $min);
-	(undef, $min) = split (/^../, $min);
+	my $year = $1;
+	my $month = $2;
+	my $day = $3;
+	my $hour = $4;
+	my $min = $5;
 
 	# now, to do some rounding..
 
@@ -696,8 +497,8 @@ sub addDate (){
    	            7 => 31,  8 => 31,  9 => 30,
       	        10 => 31, 11 => 30, 12 => 31 );
 
-	# Make sure it's all numeric so the hash below works and our comparisons are valid
-	$day += ($_[1] * 1); #Oh, and add the days..
+	# Make sure it's all numeric so the hash works and our comparisons are valid
+	$day += ($added * 1); #Oh, and add the days..
 	$month *= 1;
 
 	my $leap = 0;
