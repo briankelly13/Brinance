@@ -6,7 +6,6 @@
 #
 # Loaded with new features, and various bugs that will surely be ironed out soon..
 
-use Number::Format;
 use warnings;
 use strict;
 
@@ -97,12 +96,12 @@ foreach (@ARGV) {
 		print "Now working with account$current_acct\n";
 	}
 	elsif ($_ eq "-b" or $_ eq "--balance") {
-		print "Balance: " . Number::Format::round (balance ()) . "\n";;
+		print "Balance: " . sprintf ("%.2f", balance ()) . "\n";;
 	}
 	elsif ($_ eq "-c" or $_ eq "--credit") {
 		$credit = 1;
 		my $out = trans ();
-		my $bal = Number::Format::round (balance ());
+		my $bal = sprintf ("%.2f", balance ());
 
 		if ( 0 == $out )
 		{
@@ -126,7 +125,7 @@ foreach (@ARGV) {
 	elsif ($_ eq "-d" or $_ eq "--debit") {
 		$credit = 0;
 		my $out = trans ();
-		my $bal = Number::Format::round (balance ());
+		my $bal = sprintf ("%.2f", balance ());
 
 		if (0 == $out)
 		{
@@ -180,7 +179,7 @@ foreach (@ARGV) {
 		}
 		else
 		{
-			$out = Number::Format::round ($out);
+			$out = sprintf ("%.2f", $out);
 			print "account$current_acct future balance: $out\n";
 			$skipnext = 1;
 		}
@@ -282,7 +281,7 @@ sub usage {
 sub version: prints current version of command line program
 =cut
 sub version {
-	print "brinance version 2.2\n";
+	print "brinance version 2.3\n";
 }
 
 =pod

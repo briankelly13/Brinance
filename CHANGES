@@ -1,3 +1,9 @@
+* 20030821 - Minor: removed dependence on Number::Format. More people should be
+able to run brinance now, as Number::Format doesn't seem to be a very common
+installation package on UNIX systems. Thanks to Gong Li!
+             Minor: Small documentation corrections and additions. Added an
+AUTHORS file.
+
 * 20030807 - Minor: using strict pragma now, and had to fix some things for
 that
              Moderate: Fixed another bug in +<days> system if you added a number
@@ -7,4 +13,4 @@ days together until we've pulled fields in the date apart
 the leap year system.. worked it out..
 
 * 20030702 - Fixed date bug when specifying days in the future (+(days)
-	notation) for futurebalance and futuretrans subs
+notation) for futurebalance and futuretrans subs

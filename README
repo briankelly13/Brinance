@@ -70,10 +70,11 @@ Balance: 777.31
       which would give the balance on accounts 0 (the default) and 1.
 
    -B --futurebalance
-      Shows the balance at a specified time in the future. The can be indicated
-by either giving a date stamp in the format %C%y%m%d%H%M (out to the minute, all
-bunched together with no punctuation), or by how many full days in the future by
-putting a '+' in front of the number, as so..
+      Shows the balance at a specified time in the future. The date can be
+indicated by either giving a date stamp in the format %C%y%m%d%H%M (out to the
+minute, all bunched together with no punctuation, padded values so that there
+are a total of 12 digits), or by how many full days in the future by putting a
+'+' in front of the number, as so..
 
 [loco@erebor]% brinance -b -B +100 -1 -B 200307190000
 Balance: 136.65

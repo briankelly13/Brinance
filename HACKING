@@ -12,7 +12,7 @@ criticism.
 **File format
 
    The file format for both the account and future files is, conveniently, the
-same. It's pretty much this, in basterized BNF:
+same. It's pretty much this, in bastardized BNF:
 
 [#NAME: <account name>]
 (#<date string>
