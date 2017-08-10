@@ -93,7 +93,7 @@ just '.' and '-' are allowed where appropriate.
 Balance after credit: 69.56
 
       The transaction description ("A test credit" in this example) is only one
-argument, so if you've got spaces or special character, you need to quote them
+argument, so if you've got spaces or special characters, you need to quote them
 however you do that with your shell.
 
    -C --future credit

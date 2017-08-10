@@ -1,3 +1,9 @@
+* 20031021 - Minor: grab the user's home dir much more cleanly and Perl-ly
+
+* 20030913 - Trivial: cleaned up comments and added a couple notes of
+documentation. Final cleanups before tearing it apart again to modularize
+it.
+
 * 20030821 - Minor: removed dependence on Number::Format. More people should be
 able to run brinance now, as Number::Format doesn't seem to be a very common
 installation package on UNIX systems. Thanks to Gong Li!

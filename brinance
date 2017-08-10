@@ -1,15 +1,30 @@
 #!/usr/bin/perl -w
 #
-# The NEW and IMPROVED brinance!
+# This software released under the terms of the GNU General Public License 2.0
 #
-# This software released under the terms of GNU General Public License 2.0
+# Copyright (C) 2003 Brian M. Kelly locoburger@netscape.net http://www.locoburger.org/
 #
-# Loaded with new features, and various bugs that will surely be ironed out soon..
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 2.0.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# brinance - Perl UNIX command-line simple personal finance planner/tracker
+#
+#		tabstop = 3
 
 use warnings;
 use strict;
 
-# Parse agruments, which in turn, call subfunctions..
+# Parse agruments, which in turn, call subroutines..
 #
 #	Accepted args:
 #		b - show balance
@@ -35,27 +50,23 @@ use strict;
 #		v - version
 #			$ brinance -v
 
-# all modifications to $skipnext should be in main loop, not in subroutines
-# fixed it, needs to be debugged
-
 my $skipnext = 0;
 my $current_acct = 0;
 my $where = 0;
-my $credit = 0; #1 is credit, 0 is debit, ignored otherwise
+my $credit = 0; #Is the transaction a credit? Debit otherwise..
 
 my $now = `date +%C%y%m%d%H%M`;
 chomp $now;
 
-# tougher than I thought to pick out a user's home dir..
-my $account_dir = `echo \$HOME`;
-chomp $account_dir;
-$account_dir = $account_dir . "/.brinance/";
+$account_dir = "$ENV{HOME}/.brinance/";
 
 switch_acct (); # sets us up to use account0
 update_future (); # sync with future transactions
 
 if ( -1 == $#ARGV ) {
-	print "Need arguments.\nUse --help for more help\n";
+	print "Need arguments.\nUse --help for help\n\n";
+	print "brinance is free software without ANY warranty\n" .
+			"distributed under the terms of the GNU GPL 2.0\n";
 	exit ();
 }
 
@@ -66,180 +77,181 @@ main ();
 sub main: process our arguments, and also drive execution
 =cut
 sub main {
-foreach (@ARGV) {
-	if ($skipnext) { $where++; $skipnext--; next; }
+	foreach (@ARGV) {
+		if ($skipnext) { $where++; $skipnext--; next; }
 
-	elsif ($_ eq "-h" or $_ eq "--help") {
-		usage ();
-	}
-	elsif ($_ eq "-v" or $_ eq "--version") {
-		version ();
-	}
-	elsif ($_ eq "-n" or $_ eq "--name") {
-		if (my $out = getName ())
-		{
-			print "account$current_acct name: $out\n";
-		}
-		else
-		{
-			print "No name for account$current_acct\n";
-		}
-	}
-	elsif (/^\-[0-9]+$/) {
-		$current_acct = -1 * $_; # effectively strips the '-', and gracefully sets invalid values to 0
-		if (-1 == switch_acct ())
-		{
-			print "ERROR: account$current_acct doesn't exist\ncreate first using -r\n";
+		elsif ($_ eq "-h" or $_ eq "--help") {
 			usage ();
 		}
-		update_future ();
-		print "Now working with account$current_acct\n";
-	}
-	elsif ($_ eq "-b" or $_ eq "--balance") {
-		print "Balance: " . sprintf ("%.2f", balance ()) . "\n";;
-	}
-	elsif ($_ eq "-c" or $_ eq "--credit") {
-		$credit = 1;
-		my $out = trans ();
-		my $bal = sprintf ("%.2f", balance ());
+		elsif ($_ eq "-v" or $_ eq "--version") {
+			version ();
+		}
+		elsif ($_ eq "-n" or $_ eq "--name") {
+			if (my $out = getName ())
+			{
+				print "account$current_acct name: $out\n";
+			}
+			else
+			{
+				print "No name for account$current_acct\n";
+			}
+		}
+		elsif (/^\-[0-9]+$/) {
+			$current_acct = -1 * $_; # effectively strips the '-', and gracefully sets invalid values to 0
+			if (-1 == switch_acct ())
+			{
+				print "ERROR: account$current_acct doesn't exist\ncreate first using -r\n";
+				usage ();
+			}
+			update_future ();
+			print "Now working with account$current_acct\n";
+		}
+		elsif ($_ eq "-b" or $_ eq "--balance") {
+			print "Balance: " . sprintf ("%.2f", balance ()) . "\n";;
+		}
+		elsif ($_ eq "-c" or $_ eq "--credit") {
+			$credit = 1;
+			my $out = trans ();
+			my $bal = sprintf ("%.2f", balance ());
 
-		if ( 0 == $out )
-		{
-			print "Balance after credit: $bal\n";
-			$skipnext = 2; # eat the next next two arguments
+			if ( 0 == $out )
+			{
+				print "Balance after credit: $bal\n";
+				$skipnext = 2; # eat the next next two arguments
+			}
+			elsif ( -1 == $out )
+			{
+				print "ERROR: Too few arguments to trans()\n";
+				usage ();
+			}
+			elsif ( -2 == $out )
+			{
+				print "Ignoring 0-value transaction: $ARGV[$where+2]\n";
+			}
+			else
+			{
+				print "ERROR: unrecognized error in trans()\n";
+			}
 		}
-		elsif ( -1 == $out )
-		{
-			print "ERROR: Too few arguments to trans()\n";
-			usage ();
-		}
-		elsif ( -2 == $out )
-		{
-			print "Ignoring 0-value transaction: $ARGV[$where+2]\n";
-		}
-		else
-		{
-			print "ERROR: unrecognized error in trans()\n";
-		}
-	}
-	elsif ($_ eq "-d" or $_ eq "--debit") {
-		$credit = 0;
-		my $out = trans ();
-		my $bal = sprintf ("%.2f", balance ());
+		elsif ($_ eq "-d" or $_ eq "--debit") {
+			$credit = 0;
+			my $out = trans ();
+			my $bal = sprintf ("%.2f", balance ());
 
-		if (0 == $out)
-		{
-			# successful
-			print "Balance after debit: $bal\n";
-			$skipnext = 2; # eat the next next two arguments
+			if (0 == $out)
+			{
+				# successful
+				print "Balance after debit: $bal\n";
+				$skipnext = 2; # eat the next next two arguments
+			}
+			elsif (-1 == $out)
+			{
+				print "ERROR: Too few arguments to trans()\n";
+				usage ();
+			}
+			elsif (-2 == $out)
+			{
+				print "Ignoring 0-value transaction: $ARGV[$where+2]\n";
+			}
+			else
+			{
+				print "ERROR: unrecognized error in trans()\n";
+			}
 		}
-		elsif (-1 == $out)
-		{
-			print "ERROR: Too few arguments to trans()\n";
-			usage ();
-		}
-		elsif (-2 == $out)
-		{
-			print "Ignoring 0-value transaction: $ARGV[$where+2]\n";
-		}
-		else
-		{
-			print "ERROR: unrecognized error in trans()\n";
-		}
-	}
-	elsif ($_ eq "-r" or $_ eq "--create") {
-		my $out = create ();
+		elsif ($_ eq "-r" or $_ eq "--create") {
+			my $out = create ();
 
-		if (1 == $out)
-		{
-			print "account$ARGV[$where+2] created successfully\n";
+			if (1 == $out)
+			{
+				print "account$ARGV[$where+2] created successfully\n";
+				$skipnext = 2;
+			}
+			elsif (0 == $out)
+			{
+				print "ERROR: account$ARGV[$where+2] already exists\n";
+			}
+			elsif (-1 == $out)
+			{
+				print "ERROR: Too few arguments to create ()\n";
+				usage ();
+			}
 			$skipnext = 2;
 		}
-		elsif (0 == $out)
-		{
-			print "ERROR: account$ARGV[$where+2] already exists\n";
+		elsif ($_ eq "-B" or $_ eq "--futurebalance") {
+			my $out = futurebalance ();
+
+			if (-1 == $out)
+			{
+				print "ERROR: Too few arguments to futurebalance ()\n";
+				usage ();
+			}
+			elsif (0 == $out)
+			{
+				print "ERROR: Unable to calculate future balance\n";
+			}
+			else
+			{
+				$out = sprintf ("%.2f", $out);
+				print "account$current_acct future balance: $out\n";
+				$skipnext = 1;
+			}
 		}
-		elsif (-1 == $out)
-		{
-			print "ERROR: Too few arguments to create ()\n";
+		elsif ($_ eq "-C" or $_ eq "--futurecredit") {
+			$credit = 1;
+			my $out = futuretrans ();
+
+			if (0 == $out)
+			{
+				#success
+				$skipnext = 3;
+			}
+			elsif (-1 == $out)
+			{
+				print "ERROR: Too few arguments to futuretrans ()\n";
+				usage ();
+			}
+			elsif (-2 == $out)
+			{
+				print "Ignoring 0-value transaction: $ARGV[$where+3]\n";
+			}
+			elsif (-3 == $out)
+			{
+				print "ERROR: Must specify a *future* date in the format YYYYMMDDHHmm\n";
+				print "It is now $now\n";
+			}
+		}
+		elsif ($_ eq "-D" or $_ eq "--futuredebit") {
+			$credit = 0;
+			my $out = futuretrans ();
+
+			if (0 == $out)
+			{
+				#success
+				$skipnext = 3;
+			}
+			elsif (-1 == $out)
+			{
+				print "ERROR: Too few arguments to futuretrans ()\n";
+				usage ();
+			}
+			elsif (-2 == $out)
+			{
+				print "Ignoring 0-value transaction: $ARGV[$where+3]\n";
+			}
+			elsif (-3 == $out)
+			{
+				print "ERROR: Must specify a *future* date in the format YYYYMMDDHHmm\n";
+				print "It is now $now\n";
+			}
+		}
+
+		else {
+			print "Unrecognized argument: $_\n";
 			usage ();
 		}
-	}
-	elsif ($_ eq "-B" or $_ eq "--futurebalance") {
-		my $out = futurebalance ();
 
-		if (-1 == $out)
-		{
-			print "ERROR: Too few arguments to futurebalance ()\n";
-			usage ();
-		}
-		elsif (0 == $out)
-		{
-			print "ERROR: Unable to calculate future balance\n";
-		}
-		else
-		{
-			$out = sprintf ("%.2f", $out);
-			print "account$current_acct future balance: $out\n";
-			$skipnext = 1;
-		}
+		$where++;
 	}
-	elsif ($_ eq "-C" or $_ eq "--futurecredit") {
-		$credit = 1;
-		my $out = futuretrans ();
-
-		if (0 == $out)
-		{
-			#success
-			$skipnext = 3;
-		}
-		elsif (-1 == $out)
-		{
-			print "ERROR: Too few arguments to futuretrans ()\n";
-			usage ();
-		}
-		elsif (-2 == $out)
-		{
-			print "Ignoring 0-value transaction: $ARGV[$where+3]\n";
-		}
-		elsif (-3 == $out)
-		{
-			print "ERROR: Must specify a *future* date in the format YYYYMMDDHHmm\n";
-			print "It is now $now\n";
-		}
-	}
-	elsif ($_ eq "-D" or $_ eq "--futuredebit") {
-		$credit = 0;
-		my $out = futuretrans ();
-
-		if (0 == $out)
-		{
-			#success
-			$skipnext = 3;
-		}
-		elsif (-1 == $out)
-		{
-			print "ERROR: Too few arguments to futuretrans ()\n";
-			usage ();
-		}
-		elsif (-2 == $out)
-		{
-			print "Ignoring 0-value transaction: $ARGV[$where+3]\n";
-		}
-		elsif (-3 == $out)
-		{
-			print "ERROR: Must specify a *future* date in the format YYYYMMDDHHmm\n";
-			print "It is now $now\n";
-		}
-	}
-
-	else {
-		print "Unrecognized argument: $_\n";
-		usage ();
-	}
-
-	$where++;
-}
 } # END main ()
 
 =pod
@@ -281,7 +293,7 @@ sub usage {
 sub version: prints current version of command line program
 =cut
 sub version {
-	print "brinance version 2.3\n";
+	print "brinance version 2.4\n";
 }
 
 =pod
@@ -593,7 +605,7 @@ sub update_future {
 		}
 	}
 
-	for (my $i = 0; $i < $futures_i; $i++) 
+	for (my $i = 0; $i < $futures_i; $i++)
 	{
 		print ACCOUNT "$futures[$i]\n";
 	}
@@ -679,7 +691,6 @@ sub addDate (){
 	}
 
 	# months are crazy go nuts..
-	# I couln't find a an easy-enough to use package to do this, so I wrote it myself, no doubt introducing numerous bugs..
 	my %months = ( 1 => 31,  2 => 28,  3 => 31,
 	               4 => 30,  5 => 31,  6 => 30,
    	            7 => 31,  8 => 31,  9 => 30,

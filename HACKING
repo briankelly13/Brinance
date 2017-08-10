@@ -19,6 +19,12 @@ same. It's pretty much this, in bastardized BNF:
 #<description>
 <transaction amount>)*
 
+   The terminals above are as follows, but again, my BNF is rusty:
+<account name> = (free form text, but no new lines)
+<date string> = (0-9]){12}
+<description> = (free form text, but no new lines)
+<transaction amount> = [-](0-9)*[.](0-9)*
+
    So, the file can start with a name identifier as the first line. Past that,
 there are particular transactions. This was designed to be easily modifiable
 with your favorite text editor (I use Vim, it's crunchy!).
@@ -27,6 +33,6 @@ are only for your reference in reading the file later. As for calculations and
 whatnot, it only considers the uncommented transaction amount lines. They are
 simply all added together and returned to the calling function. Debits will be
 negative, credits will be positive, but of course you can trick by inputting a
-negative debit or something, bu then you're just getting silly. It won't break
+negative debit or something, but then you're just getting silly. It won't break
 anything, though.
 
