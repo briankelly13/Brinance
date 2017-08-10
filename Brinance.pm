@@ -22,18 +22,19 @@
 #     tabstop = 3    (These two lines should line up)
 #		tabstop = 3		(These two lines should line up)
 
+use strict;
+use warnings;
 
 package Brinance;
 require Exporter;
 
 our @ISA = ("Exporter");
-our $VERSION = "1.00";
-our @EXPORT_OK = qw($current_acct $now);
+our $VERSION = "1.01";
+our @EXPORT_OK = qw($current_acct $now $account_dir);
 
 our $current_acct = 0;
 our $now;
-
-$account_dir .= "$ENV{HOME}/.brinance/";
+our $account_dir = "$ENV{HOME}/.brinance/";
 
 =pod
 sub renow: re-initialize $now, used before any time-dependant functions
@@ -60,7 +61,7 @@ sub getName {
 	my $top = <ACCOUNT>;
 	my $title = undef;
 
-	if ($top =~ "^#NAME: ")
+	if ($top =~ /^#NAME: /)
 	{
 		(undef, $title) = split(/: /, $top);
 		chomp $title;
@@ -80,7 +81,7 @@ sub balance {
 
 	for (<ACCOUNT>)
 	{
-		if (/^#/) # doesn't affect calculation
+		if (/^#/)
 		{
 			#commented line
 		}
@@ -136,13 +137,11 @@ sub trans () {
 sub create: create a new account
   usage: &Brinance::create ( $accountName, $accountNumber )
   return values:
-   1 - success
-   0 - account already exists, no change
+   1 - account already exists, no change
+   0 - success
   -1 - too few arguments, needs 2
 =cut
-sub create {
-	my $worked;
-
+sub create () {
 	if ( 2 > @_ )
 	{
 		return -1;
@@ -153,7 +152,7 @@ sub create {
 
 	if (-e ("$account_dir" . "account" . $acct_num))
 	{
-		$worked = 0;
+		return 1;
 	}
 	else
 	{
@@ -166,39 +165,43 @@ sub create {
 		close ACCOUNT;
 		close FUTURE;
 
-		$worked = 1;
+		return 0;
 	}
-	return $worked;
 }
 
 =pod
 sub futurebalance: determines balance at given future time
   usage: &Brinance::futurebalance ( $futureDate )
   return values:
-  x - too few arguments, needs 1
-  else - the future balance
+   undef - too few arguments, needs 1
+   else  - the future balance
 =cut
 sub futurebalance {
 	if ( 1 > @_ )
 	{
-		return "x";
+		return undef;
 	}
 
-	open (FUTURE, ($account_dir . "future" . $current_acct)) or return "x";
+	open (FUTURE, ($account_dir . "future" . $current_acct)) or return undef;
 
-	# date request can only be in 12-digit format
-
-	my $rdate = $_[0];
+	my $rdate;
+	if ( $now >= $_[0] )
+	{
+		return undef;
+	}
+	else
+	{
+		$rdate = $_[0];
+	}
 
 	my $total = &Brinance::balance ();
 	my $grabnext = 0;
 
 	while (<FUTURE>)
 	{
-		if (/^#\d{12}$/)
+		if (/^#(\d{12})$/)
 		{
-			my (undef, $cdate) = split (/#/, $_);
-			chomp $cdate;
+			my $cdate = $1;
 			if ($cdate < $rdate)
 			{
 				$grabnext = 1; # take the next value to come up
@@ -267,7 +270,7 @@ sub futuretrans {
 }
 
 =pod
-sub update_future: called before working with an account to apply future transactions if they are now passed
+sub update_future: called before working with an account to apply future transactions if they are now in the past
 =cut
 sub update_future {
 	&renow ();
@@ -347,11 +350,20 @@ sub update_future {
 =pod
 sub switch_acct: safety for switching account, give a failure if the account isn't initialized
   return values:
-   1 - safe to switch, success
-   0 - created account0; won't auto-create any other account
+   1 - created account0; won't auto-create any other account
+   0 - safe to switch, success
   -1 - account doesn't exist, unsafe
 =cut
 sub switch_acct {
+	if ( !@_ )
+	{
+		$current_acct = 0;
+	}
+	else
+	{
+		$current_acct = $_[0];
+	}
+
 	# check to see this account exists, else fail
 	if (!-e ($account_dir . "account" . $current_acct)) # doesn't exist
 	{
@@ -367,7 +379,7 @@ sub switch_acct {
 			close ACCOUNT;
 			close FUTURE;
 
-			return 0;
+			return 1;
 		}
 		else
 		{
@@ -377,7 +389,7 @@ sub switch_acct {
 	}
 	else
 	{
-		return 1;
+		return 0;
 	}
 }
 

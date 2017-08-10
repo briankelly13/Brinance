@@ -1,3 +1,8 @@
+* 20031027 - Cleaned up some module API issues
+             Added module documentation in a SPEC file
+
+* 20031026 - Fixed some warnings about un-initialized variables
+
 * 20031021 - Got the module complete functionally. Final testing. The
 command-line interface has an improved option system. It now accepts option
 groupings (e.g. -b1b instead of -b -1 -b), but the old way still works
