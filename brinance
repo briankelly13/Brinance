@@ -56,7 +56,7 @@ use Brinance;
 #		v - version
 #			$ brinance -v
 
-my $VERSION = "3.10";
+my $VERSION = "3.11";
 my @arglist;
 
 # We first pull apart all arguments and push them or their equivalent into @arglist
@@ -65,34 +65,34 @@ foreach ( @ARGV )
 	if ( /^--/ ) # GNU style option
 	{
 		if    ( $_ eq "--help" ) {
-			push ( @arglist, "h" );
+			push ( @arglist, "-h" );
 		}
 		elsif ( $_ eq "--version" ) {
-			push ( @arglist, "v" );
+			push ( @arglist, "-v" );
 		}
 		elsif ( $_ eq "--credit" ) {
-			push ( @arglist, "c" );
+			push ( @arglist, "-c" );
 		}
 		elsif ( $_ eq "--debit" ) {
-			push ( @arglist, "d" );
+			push ( @arglist, "-d" );
 		}
 		elsif ( $_ eq "--balance" ) {
-			push ( @arglist, "b" );
+			push ( @arglist, "-b" );
 		}
 		elsif ( $_ eq "--datedcredit" ) {
-			push ( @arglist, "C" );
+			push ( @arglist, "-C" );
 		}
 		elsif ( $_ eq "--dateddebit" ) {
-			push ( @arglist, "D" );
+			push ( @arglist, "-D" );
 		}
 		elsif ( $_ eq "--datedbalance" ) {
-			push ( @arglist, "B" );
+			push ( @arglist, "-B" );
 		}
 		elsif ( $_ eq "--name" ) {
-			push ( @arglist, "n" );
+			push ( @arglist, "-n" );
 		}
 		elsif ( $_ eq "--create" ) {
-			push ( @arglist, "r" );
+			push ( @arglist, "-r" );
 		}
 		else {
 			print "Unrecognized GNU style option: $_\n";
@@ -145,7 +145,7 @@ foreach ( @ARGV )
 
 		foreach (@donelist)
 		{
-			push ( @arglist, $_ );
+			push ( @arglist, "-$_" );
 		}
 	}
 	else # not starting with -
@@ -172,7 +172,7 @@ foreach ( @arglist )
 {
 	if ( $skipnext ) { $skipnext--; $where++; next; }
 
-	if (/^(\d+)$/) {
+	if (/^-(\d+)$/) {
 		my $out = &Brinance::switch_acct ($1);
 
 		if ( 1 == $out ) {
@@ -192,7 +192,7 @@ foreach ( @arglist )
 
 		&Brinance::update_future ();
 	}
-	elsif ( $_ eq "v" ) {
+	elsif ( $_ eq "-v" ) {
 		my $mod_ver = &Brinance::version ();
 		print "Brinance module version: $mod_ver\n";
 		print "brinance CLI version: $VERSION\n";
@@ -202,29 +202,29 @@ foreach ( @arglist )
 		print "This is free software, and you are welcome to redistribute it\n";
 		print "under certain conditions. See LICENSE for details.\n";
 	}
-	elsif ( $_ eq "h" ) {
+	elsif ( $_ eq "-h" ) {
 		&usage (0);
 	}
-	elsif ( $_ eq "b" ) {
+	elsif ( $_ eq "-b" ) {
 		print "Balance: " . sprintf ("%.2f", &Brinance::balance ()) . "\n";
 	}
-	elsif ( $_ eq "c" ) {
+	elsif ( $_ eq "-c" ) {
 		$credit = 1;
 		&CLItrans ();
 	}
-	elsif ( $_ eq "d" ) {
+	elsif ( $_ eq "-d" ) {
 		$credit = 0;
 		&CLItrans ();
 	}
-	elsif ( $_ eq "C" ) {
+	elsif ( $_ eq "-C" ) {
 		$credit = 1;
 		&CLIdatedtrans ();
 	}
-	elsif ( $_ eq "D" ) {
+	elsif ( $_ eq "-D" ) {
 		$credit = 0;
 		&CLIdatedtrans ();
 	}
-	elsif ( $_ eq "B" ) {
+	elsif ( $_ eq "-B" ) {
 		if ( $arglist[$where+1] )
 		{
 			my $out;
@@ -248,7 +248,7 @@ foreach ( @arglist )
 		}
 		$skipnext = 1;
 	}
-	elsif ( $_ eq "n" ) {
+	elsif ( $_ eq "-n" ) {
 		if ( my $out = &Brinance::getName () )
 		{
 			print "account$Brinance::current_acct name: $out\n";
@@ -258,7 +258,7 @@ foreach ( @arglist )
 			print "No name for account$Brinance::current_acct\n";
 		}
 	}
-	elsif ( $_ eq "r" ) {
+	elsif ( $_ eq "-r" ) {
 		if ( $arglist[$where+2] && $arglist[$where+1] )
 		{
 			my $out = &Brinance::create ( $arglist[$where+1], $arglist[$where+2] );
@@ -428,6 +428,15 @@ sub CLIdatedtrans {
 		{
 			# success
 			print "Dated transaction applied\n";
+
+			if ($date_mod <= $Brinance::now)
+			{
+				print "Balance: " . sprintf ("%.2f", &Brinance::balance ()) . "\n";
+			}
+			else
+			{
+				print "Balance at date $date_mod: " . sprintf ("%.2f", &Brinance::datedbalance($date_mod)) . "\n";
+			}
 
 			$skipnext = 3;
 		}

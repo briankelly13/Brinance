@@ -29,7 +29,7 @@ package Brinance;
 require Exporter;
 
 our @ISA = ("Exporter");
-our $VERSION = "1.10";
+our $VERSION = "1.11";
 our @EXPORT_OK = qw($current_acct $now $account_dir);
 
 our $current_acct = 0;
@@ -190,7 +190,7 @@ sub datedbalance {
 	else
 	{
 		$file = "future";
-		$total = &Brinance::balance ();
+		$total = &balance ();
 	}
 
 	open (FILE, ($account_dir . $file . $current_acct)) or die "Could not open $file file\n";
@@ -200,7 +200,7 @@ sub datedbalance {
 	{
 		if (/^#(\d{12})$/)
 		{
-			if ($1 < $requestd_date)
+			if ($1 <= $requestd_date)
 			{
 				$grabnext = 1; # take the next value to come up
 			}
@@ -242,13 +242,14 @@ sub datedtrans {
 		# 0-value transaction
 		return -2;
 	}
-	elsif ( $now >= $_[0] )
+	elsif ( $now > $_[0] )
 	{ 
 		$file = "account";
 	}
 
 	open (FILE, (">>$account_dir" . $file . $current_acct)) or die "ERROR: Cannot open file " . $account_dir . $file . $current_acct;
 
+	# for readability
 	my $date = $_[0];
 	my $amount = $_[1];
 	my $comment = $_[2];
