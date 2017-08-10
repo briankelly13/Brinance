@@ -1,0 +1,148 @@
+=================================================
+ How to use brinance (and a bit of motivation..)
+=================================================
+
+   Brinance is a commandline financial planning and tracking program, hoping to
+be a functional replacement for something overly complicated like GnuCash for
+those who prefer the commandline. It is written in simple Perl and has a few
+advanced features, such as scheduling transactions in the future and having as
+many accounts as one might care to have.
+   No disrespect to GnuCash, but I started this program so that I wouldn't have
+to be tied to a GUI interface to do my finances. I originally wrote it in simple
+C++, but wanted to try out Perl more, so when the time came to do a re-write
+(add future transactions and multiple accounts, mostly) I was able to think of
+how to do it in Perl pretty quickly, so off I went.
+
+   Brinance keeps its data in some files in its own directory within your home
+directory, cleverly called '.brinance'. There will be two files for every
+account, a main file (account<number>) and a future file (future<number>), so
+that a long listing in ~/.brinance/ might look like:
+
+[loco@erebor]% ls -l ~/.brinance/
+total 24
+-rw-------    1 loco     users        8850 Jun 26 16:21 account0
+-rw-------    1 loco     users         319 Jun 20 00:05 account1
+-rw-r--r--    1 loco     users          68 Jun 26 20:16 future0
+-rw-r--r--    1 loco     users          64 Jun 26 16:21 future1
+
+   Anyway, so on to how to use this program. First, here's the help output,
+which I'll explain a bit more:
+
+[loco@erebor]% brinance --help
+Usage:
+
+  $ brinance <args>
+
+  Accepted args:
+     -b --balance -> show balance
+        $ brinance -b
+     -B --futurebalance -> show future balance
+        $ brinance -B 200306271200
+     -c --credit -> credit
+        $ brinance -c <amount> <comment>
+     -C --futurecredit -> future credit
+        $ brinance -C 200306271200 <amount> <comment>
+     -d --debit -> debit
+        $ brinance -d <amount> <comment>
+     -D --futuredebit -> future debit
+        $ brinance -D 200306271200 <amount> <comment>
+     -# -> (as in, a number) all following arguments refer to this account
+        $ brinance -2 <action>
+     -n --name -> get the name of the active account
+        $ brinance -4 -n
+     -r --create -> create a new account
+        $ brinance -r <account description> <account number>
+     -h --help -> help
+        $ brinance -h
+     -v --version -> version
+        $ brinance -v
+
+OPTIONS:
+   -b --balance
+      Shows the balance on the current account. This can be specified many times
+on the command line, as in:
+
+[loco@erebor]% brinance -b -1 -b
+Balance: 136.65
+Now working with account1
+Balance: 777.31
+
+      which would give the balance on accounts 0 (the default) and 1.
+
+   -B --futurebalance
+      Shows the balance at a specified time in the future. The can be indicated
+by either giving a date stamp in the format %C%y%m%d%H%M (out to the minute, all
+bunched together with no punctuation), or by how many full days in the future by
+putting a '+' in front of the number, as so..
+
+[loco@erebor]% brinance -b -B +100 -1 -B 200307190000
+Balance: 136.65
+account0 future balance: 823.35
+Now working with account1
+account1 future balance: 883.74
+
+      If the date specified in the long format is actually in the past, brinance
+will give you an error. No trickiness..
+
+   -c --credit
+      Post a credit right now. You need to give an amount (no currency symbol,
+just '.' and '-' are allowed where appropriate.
+
+[loco@erebor]% brinance -c 12.56 "A test credit"
+Balance after credit: 69.56
+
+      The transaction description ("A test credit" in this example) is only one
+argument, so if you've got spaces or special character, you need to quote them
+however you do that with your shell.
+
+   -C --future credit
+      Post a credit in the future. Just like a normal credit, but you need to
+specify a future date (in either format listed above) before the amount.
+
+[loco@erebor]% brinance -C 200308080000 100 "birthday money"
+
+   -d --debit
+      Just like a credit, but the amount is negated before it's recorded. Same
+syntax as '-c'.
+
+   -D --futuredebit
+      Just what you'd think, a future debit. Same syntax as '-C'.
+
+   -{#}
+      Switch the active account to this numbered account. That account must
+already exist, or brinance exits. You use a literal number though. You'll use
+this option to switch to that account to work with it. You can specify this
+option more than once to work with multiple accounts in one command line.
+
+[loco@erebor]% brinance -1 -b
+Now working with account1
+Balance: 777.31
+
+   -n --name
+      Get the name of the active account. The file format supports having the
+first commented line be a name string, and this option reads that and prints it
+out. If there isn't a name on the specified account, it'll say so.
+
+[loco@erebor]% brinance -n -2 -n
+account0 name: checking account
+Now working with account2
+No name for account2
+
+   -r --create
+      Create a new account. You will have to manually do this for every account
+you want besides the initial. This creates an account with the number you
+specify, if those files don't already exist. The first argument to -r is an
+account description. The second argument is the requested number.
+
+[loco@erebor]% brinance -r "My new account" 17
+account17 created successfully
+
+[loco@erebor]% brinance -r "An error this time.." 17
+ERROR: account17 already exists
+
+   -h --help
+      Print all the options along with brief descriptions.
+
+   -v --version
+      Print the version of brinance you are running.
+

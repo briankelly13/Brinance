@@ -1,0 +1,29 @@
+======================
+ How to hack brinance
+======================
+
+   Brinance is written in Perl, and it's fairly simple code. It's my first major
+project in Perl, so I bet my coding style could use some brushing up. Anyway, it
+should be pretty easy to follow, I think.
+
+**File format
+
+   The file format for both the account and future files is, conveniently, the
+same. It's pretty much this, in basterized BNF:
+
+[#NAME: <account name>]
+(#<date string>
+#<description>
+<transaction amount>)*
+
+   So, the file can start with a name identifier as the first line. Past that,
+there are particular transactions. This was designed to be easily modifiable
+with your favorite text editor (I use Vim, it's crunchy!).
+   In the account file, the dates are ignored, along with the description. They
+are only for your reference in reading the file later. As for calculations and
+whatnot, it only considers the uncommented transaction amount lines. They are
+simply all added together and returned to the calling function. Debits will be
+negative, credits will be positive, but of course you can trick by inputting a
+negative debit or something, bu then you're just getting silly. It won't break
+anything, though.
+

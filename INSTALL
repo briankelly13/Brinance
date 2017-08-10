@@ -1,0 +1,8 @@
+=========================
+ How to install brinance
+=========================
+
+   Throw the brinance perl script in your path somewhere and create a
+'.brinance' directory in your home directory for your data files to sit. That's
+it!
+

@@ -1,0 +1,2 @@
+
+* 20030702 - Fixed date bug when specifying days in the future (+(days) notation) for futurebalance and futuretrans subs
