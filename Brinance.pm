@@ -2,7 +2,7 @@
 #
 # This software released under the terms of the GNU General Public License 2.0
 #
-# Copyright (C) 2003,2004 Brian M. Kelly locoburger@netscape.net http://www.locoburger.org/
+# Copyright (C) 2003-2006 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -28,86 +28,66 @@ use warnings;
 package Brinance;
 require Exporter;
 
-our @ISA = ("Exporter");
-our $VERSION = "3.92";
-our @EXPORT_OK = qw($current_acct $now $account_dir
-							&getName &balance &trans &create
-							&update_future &version &datedtrans
-							&datedbalance &switch_acct);
+our @ISA = ('Exporter');
+our $VERSION = '3.95';
+our @EXPORT_OK = qw(	$current_acct $now $account_dir
+							&getName &balance &trans &get_accts
+							&version &create &switch_acct);
 
 our $current_acct = 0;
 our $now;
 our $account_dir = "$ENV{HOME}/.brinance";
 
-=pod
-sub renow: re-initialize $now, used before any time-dependant functions
-=cut
-sub renow () {
-	my (undef, $min, $hour, $mday, $mon, $year, undef, undef, undef) = localtime(time);
+my %accounts = (); # HoH of account names and last updates times indexed by account number
+my %new_accounts = ();
+my @transactions = (); # AoH representing all transactions
+my @new_transactions = ();
+my @futures = (); # AoH patterns and comments found in the futures file
 
-	$year += 1900;
-	$mon += 1;
-
-	if ($mon < 10) { $mon = "0" . $mon; }
-	if ($mday < 10) { $mday = "0" . $mday; }
-	if ($hour < 10) { $hour = "0" . $hour; }
-	if ($min < 10) { $min = "0" . $min; }
-
-	$now = $year . $mon . $mday . $hour . $min;
+END {
+&_writechanges;
 }
 
 =pod
 sub version: returns current version of Briance module
 =cut
-sub version () {
+sub version {
 	return $VERSION;
 }
 
 =pod
 sub getName: returns the name of the current account, or undefined if there is no valid name
 =cut
-sub getName () {
-	open (ACCOUNT, "$account_dir/accounts") or die "ERROR: Cannot open file $account_dir/accounts";
-
-	my $title = undef;
-	while (<ACCOUNT>) {
-		if (/^ACCOUNT $current_acct: (.+)$/)
-		{
-			$title = $1;
-			last;
-		}
+sub getName {
+	if (defined $accounts{$current_acct}) {
+		return $accounts{$current_acct}->{'name'} ne '' ? $accounts{$current_acct}->{'name'} : undef;
+	} elsif (defined $new_accounts{$current_acct}) {
+		return $new_accounts{$current_acct}->{'name'} ne '' ? $new_accounts{$current_acct}->{'name'} : undef;
+	} else {
+		return undef;
 	}
-	close ACCOUNT;
-
-	return $title;
 }
 
 =pod
 sub balance: returns the balance of the current account
 =cut
-sub balance () {
-	&renow;
-	open (ACCOUNT, ("$account_dir/accounts")) or die "ERROR: Cannot open file $account_dir/accounts";
+sub balance {
+	&_setup unless (keys %accounts or keys %new_accounts);
 
-	my $date_req;
-	if ($_[0] and ($_[0] =~ /^\d{12}$/)) {
-		$date_req = $_[0];
-	} else {
+	my ($date_req) = @_;
+	unless (defined $date_req and ($date_req =~ /^\d{12}$/)) {
+		&_renow;
 		$date_req = $now;
 	}
 
 	my $total = 0;
-	for (<ACCOUNT>)
-	{
-		if (/^(\d{12})\s+$current_acct\s+([-0-9\.]+).+$/)
-		{
-			if ( $1 <= $date_req ) {
-				$total += $2;
-			}
-		}
+	foreach my $t (@transactions, @new_transactions) {
+		$total += $t->{'amount'}
+			if	$t->{'type'} eq 'transaction' and
+				$t->{'account'} == $current_acct and
+				$t->{'date'} <= $date_req;
 	}
 
-	close ACCOUNT;
 	return $total;
 }
 
@@ -120,44 +100,36 @@ sub trans: applies a transaction to the current account, either credit or debit
   -2 - zero value transaction, which could mean a non-number was specified as the transaction amount
   -3 - invalid date specified
 =cut
-sub trans () {
-	&renow;
+sub trans {
+	&_setup unless (keys %accounts or keys %new_accounts);
 
-	if ( 2 > @_ ) # too few arguments
-	{
-		return -1;
+	if ( 2 > @_ ) {
+		return -1; # too few arguments
 	}
 
-	$_[0] += 0; # to make sure its numeric
+	my ($amount, $comment, $req_date) = @_;
 
-	if ( 0 == $_[0] ) # zero value transacrion
-	{
+	$amount += 0; # to make sure its numeric
+	if ( 0 == $amount ) { # zero value transacrion
 		return -2;
 	}
 
-	my $req_date;
-	if ( $_[2] ) # was a date specified?
-	{
-		unless ($_[2] =~ /^\d{12}$/) # invalid date format
-		{
+	if ( $req_date ) { # was a date specified?
+		unless ($req_date =~ /^\d{12}$/) { # invalid date format
 			return -3;
 		}
-		$req_date = $_[2];
-	}
-	else
-	{
+	} else {
+		&_renow;
 		$req_date = $now;
 	}
 
-	# yup, do it.. the guts
-	open (ACCOUNT, ">>$account_dir/accounts") or die "ERROR: Cannot open file $account_dir/accounts";
+	push @new_transactions,	{	'date' => $req_date,
+										'account' => $current_acct,
+										'amount' => $amount,
+										'comment' => $comment,
+										'type' => 'transaction',
+									};
 
-	my $amount = $_[0];
-	my $comment = $_[1];
-
-	print ACCOUNT "$req_date\t$current_acct\t$amount\t$comment\n";
-
-	close ACCOUNT;
 	return 0;
 }
 
@@ -169,239 +141,126 @@ sub create: create a new account
    0 - success
   -1 - too few arguments, needs 2
 =cut
-sub create () {
-	if ( 2 > @_ )
-	{
+sub create {
+	if ( 2 > @_ ) {
 		return -1;
 	}
 
-	my $acct_name = $_[0];
-	my $acct_num = 0 + $_[1]; #Make it numeric
+	my ($acct_name, $acct_num) = @_;
+	$acct_num += 0; #Make it numeric
 
-	open (RACCOUNT, "$account_dir/accounts") or die "ERROR: Cannot open file $account_dir/accounts for reading";
-
-	# check to see if account already exists
-	my @oldacct;
-	while (<RACCOUNT>) {
-		chomp;
-		unless (/^ACCOUNT $acct_num:?/) {
-			push (@oldacct, $_);
-		}	else {
-			close RACCOUNT;
-			return 1;
-		}
-	}
-	close RACCOUNT;
-
-	open (WACCOUNT, ">$account_dir/accounts") or die "ERROR: Cannot open file $account_dir/accounts for writing";
-
-	if ($acct_name) {
-		print WACCOUNT "ACCOUNT $acct_num: $acct_name\n"
+	if (defined $accounts{$acct_num} or defined $new_accounts{$acct_num}) {
+		return 1;
 	} else {
-		print WACCOUNT "ACCOUNT $acct_num\n";
+		&_renow;
+		$new_accounts{$acct_num}->{'name'} = $acct_name;
+		$new_accounts{$acct_num}->{'updated'} = $now;
 	}
-
-	foreach (@oldacct) {
-		print WACCOUNT "$_\n";
-	}
-	close WACCOUNT;
-
-	open (RFUTURE, "$account_dir/futures") or die "ERROR: Cannot open file $account_dir/futures for reading";
-
-	my $exists;
-	my @oldfut;
-	while (<RFUTURE>) {
-		chomp;
-		unless (/^ACCOUNT\s+$acct_num:/) {
-			push (@oldfut, $_);
-		} else {
-			$exists = $_; # account already listed in futures file
-		}
-	}
-	close RFUTURE;
-
-	open (WFUTURE, ">$account_dir/futures") or die "ERROR: Cannot open file $account_dir/futures for writing";
-	print WFUTURE "ACCOUNT $acct_num: $now\n";
-	foreach (@oldfut) {
-		print WFUTURE "$_\n";
-	}
-	close WFUTURE;
 
 	return 0;
 }
 
 =pod
-sub datedbalance: determines balance at given future time
-  usage: &Brinance::datedbalance ( $date )
-  return balance at $date
-=cut
-sub datedbalance () { # deprecated
-	return &balance (@_);
-}
-
-=pod
-sub datedtrans: applies a transaction at specified future time
-  usage: &Brinance::datedtrans ( &date, $amount, $comment )
+sub switch_acct: safety for switching account, give a failure if the account isn't initialized
   return values:
+   1 - created account 0; won't auto-create any other account
    0 - success
-  -1 - too few arguments, needs three
-  -2 - zero-value transaction
+  -1 - failed, account doesn't exist
 =cut
-sub datedtrans () { # deprecated
-	if ( $_[0] and $_[1] and $_[2] ) {
-		# trans takes the date last, datedtrans takes it first, so we need to switch things around
-		return &trans ( $_[1], $_[2], $_[0] );
-	} else {
+sub switch_acct {
+	$current_acct = defined $_[0] ? $_[0] + 0 : 0;
+
+	&_setup unless (keys %accounts or keys %new_accounts);
+
+	if (defined $accounts{$current_acct} or defined $new_accounts{$current_acct}) {
+		&_update_futures;
+		return 0;
+	} elsif ($current_acct == 0) { # create account 0 named "default"
+		&_renow;
+		$new_accounts{0}->{'name'} = 'default';
+		$new_accounts{0}->{'updated'} = $now;
+		&_update_futures;
+		return 1;
+	} else { # account not found
 		return -1;
 	}
 }
 
 =pod
-sub update_future: called before working with an account to apply future transactions if they are now in the past
+sub get_accts: return an array with numbers for all accounts
 =cut
-sub update_future () {
-#FIXME: this will check time patterns in futures file to see if there's an transaction to apply since our last run
-# last run on each account is in futures file
-	&renow;
+sub get_accts {
+	&_setup unless (keys %accounts or keys %new_accounts);
 
-	unless (-e "$account_dir/futures") {
-		# create futures file
-		open (FUTURES, ">$account_dir/futures") or die "ERROR: cannot create futures file";
-		open (ACCOUNTS, "$account_dir/accounts") or die "ERROR: cannot read accounts file";
+	my @list = sort {$a <=> $b} (keys %accounts, keys %new_accounts);
+	return @list;
+}
 
-		my @accounts;
-		while (<ACCOUNTS>) {
-			if (/^ACCOUNT (\d+)/) {
-				push (@accounts, $1);
-			}
-		}
-		close ACCOUNTS;
+=pod
+INTERNAL
+sub _renow: re-initialize $now, used before any time-dependant functions
+=cut
+sub _renow {
+	my (undef, $min, $hour, $mday, $mon, $year, undef, undef, undef) = localtime(time);
 
-		foreach (@accounts) {
-			print FUTURES "ACCOUNT $_: $now\n";
-		}
-		close FUTURES;
+	$year += 1900;
+	$mon += 1;
 
-		return;
-	}
+	if ($mon  < 10) { $mon  = '0' . $mon; }
+	if ($mday < 10) { $mday = '0' . $mday; }
+	if ($hour < 10) { $hour = '0' . $hour; }
+	if ($min  < 10) { $min  = '0' . $min; }
 
-	# calculate now-past recurring transactions based upon last run-time in last_update
-	open (RFUTURES, "$account_dir/futures") or die "ERROR: could not open futures file";
+	$now = $year . $mon . $mday . $hour . $min;
+}
 
-	my @futures; # load this up so we can update last dates, and then get down to business
-	my $last_update;
-	foreach (<RFUTURES>) {
-		chomp;
-		push (@futures, $_);
+=pod
+INTERNAL
+sub _update_futures: called before working with an account to apply future transactions if they are now in the past
+=cut
+sub _update_futures {
+	foreach my $fut (@futures) {
+		my @dates = ();
+		if (($fut->{'type'} eq 'pattern') and ($fut->{'account'} == $current_acct)) {
+			&_renow;
+			@dates = &_calc_future_patterns ($fut->{'year'}, $fut->{'month'}, $fut->{'day'},
+				$fut->{'day_logic'}, $fut->{'dayow'}, $fut->{'hour'}, $fut->{'min'}, $fut->{'origin'},
+				$accounts{$current_acct}->{'updated'}, $now);
+				$accounts{$current_acct}->{'updated'} = $now;
 
-		if (/^\s*#/) { # ignore comments
-			next;
-		} elsif (/^\s*$/) { # ignore blank lines
-			next;
-		} elsif (/^ACCOUNT\s+$current_acct:\s+(\d{12})$/) { # get the last update time on the current account
-			$last_update = $1;
-		} elsif (/^\s*(\S+)\s+(\S+)\s+(\S+)\s+([|&]?)\s*(\S+)\s+(\S+)\s+(\S+)\s+:(\S*):\s+$current_acct\s+(.+)\s*$/) {
-			# woo.. there's an ugly regex..
-			$5 = $5 ? $5 : "|";
-			my @dates;
-			if ($last_update) {
-				@dates = &calc_future_patterns ($1, $2, $3, $4, $5, $6, $7, $8, $last_update);
-			} else {
-				# silently fail, we'll post a last_update in just a sec
-			}
-
-			if (@dates) {
-				open (ACCOUNTS, ">>$account_dir/accounts") or die "ERROR: Could not open accounts file to apply now-past transactions";
-				my ($amount, $comment) = split ($9, /\s/, 2);
-				foreach (@dates) {
-					print ACCOUNTS "$_\t$current_acct\t$amount\t$comment\n";
-#print STDOUT "$_\t$current_acct\t$amount\t$comment\n";
-				}
-				close ACCOUNTS;
+			foreach my $date (@dates) {
+				push @new_transactions,	{	'date' => $date,
+													'amount' => $fut->{'amount'},
+													'account' => $fut->{'account'},
+													'comment' => $fut->{'comment'},
+													'type' => 'transaction' };
 			}
 		}
 	}
-	close RFUTURES;
-
-	# update last update info for this account in futures
-	open (WFUTURES, ">$account_dir/futures") or die "ERROR: could not open last_update file";
-	foreach (@futures) {
-		if (/^ACCOUNT\s+$current_acct:/) {
-			print WFUTURES "ACCOUNT $current_acct: $now\n";
-		}
-		else {
-			print WFUTURES "$_\n";
-		}
-	}
-	close WFUTURES;
 
 	return;
 }
 
 =pod
-sub switch_acct: safety for switching account, give a failure if the account isn't initialized
-  return values:
-   1 - created account0; won't auto-create any other account
-   0 - safe to switch, success
-  -1 - account doesn't exist, unsafe
-=cut
-sub switch_acct () {
-	if ( @_ )
-	{
-		$current_acct = $_[0];
-	}
-	else
-	{
-		$current_acct = 0;
-	}
-
-	# check to see the account file exists, else create empty
-	if (-e "$account_dir/accounts")
-	{ # need to check that there is a ACCOUNT line for this account
-		open (ACCOUNT, "$account_dir/accounts") or die "ERROR: Cannot open file $account_dir/accounts";
-
-		while (<ACCOUNT>) {
-			if (/^ACCOUNT $current_acct/) {
-				close ACCOUNT;
-				return 0;
-			}
-		}
-		# didn't find it
-		return -1;
-	}
-	else
-	{ # create file, with account 0 named "default"
-		open (ACCOUNT, ">$account_dir/accounts") or die "ERROR: Cannot create file $account_dir/accounts";
-		print ACCOUNT "ACCOUNT 0: default\n";
-		close ACCOUNT;
-
-		return 1;
-	}
-}
-
-=pod
 INTERNAL
-sub calc_future_patterns: processes patterns lines in futures file between last_update and now
+sub _calc_future_patterns: processes patterns lines in futures file between last_update and now
 =cut
-#FIXME: want this to take a requested date argument, so we can calculate for future dates, for future balances
-sub calc_future_patterns () {
-#($year, $month, $day, $day_logic, $dayow, $hour, $min, $origin, $last_update)
-	unless (9 == @_) {
+sub _calc_future_patterns {
+	unless (10 == @_) {
 		return ();
 	}
 
-	my ($year, $month, $day, $day_logic, $dayow, $hour, $min, $origin, $last_update) = @_;
+	my ($year,$month,$day,$day_logic,$dayow,$hour,$min,$origin,$from_date,$to_date) = @_;
 
-	&renow;
-	$now =~ /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)$/;
-	my ($year_now, $month_now, $day_now, $hour_now, $min_now) = ($1, $2, $3, $4, $5);
-	my $dayow_now = &get_dayow($year_now, $month_now, $day_now);
+	$from_date =~ /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)$/;
+	my ($from_year, $from_month, $from_day, $from_hour, $from_min) = ($1, $2, $3, $4, $5);
+	my $from_dayow = &_get_dayow($from_year, $from_month, $from_day);
 
-	$last_update =~ /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)$/;
-	my ($year_last, $month_last, $day_last, $hour_last, $min_last) = ($1, $2, $3, $4, $5);
-	my $dayow_last = &get_dayow($year_last, $month_last, $day_last);
+	$to_date =~ /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)$/;
+	my ($to_year, $to_month, $to_day, $to_hour, $to_min) = ($1, $2, $3, $4, $5);
+	my $to_dayow = &_get_dayow($to_year, $to_month, $to_day);
 
-	unless ($day_logic) { $day_logic = "|"; }
+	$day_logic = '|' unless $day_logic;
 
 	$month =~ s/jan/1/i;
 	$month =~ s/feb/2/i;
@@ -425,72 +284,104 @@ sub calc_future_patterns () {
 	$dayow =~ s/sat/6/i;
 	$dayow =~ s/7/0/;
 
-	# we'll only calculate to a day's granularity, tack on the hour and min as the time, but it doesn't affect the calculation
-	my %years = &gen_list ($year);
-	my %months = &gen_list ($month);
-	my %days = &gen_list ($day);
-	my %dayows = &gen_list ($dayow);
+	# we'll only calculate to a day's granularity;
+		# tack on the hour and min as the time, but it doesn't affect the calculation
+	my %years = &_gen_list ($year);
+	my %months = &_gen_list ($month);
+	my %days = &_gen_list ($day);
+	my %dayows = &_gen_list ($dayow);
 
-#FIXME: still not triggering quite right..
 	my @return_dates = ();
-	foreach ( ($year_last . $month_last . $day_last) .. ($year_now . $month_now . $day_now) ) {
-		unless (/^(\d{4})(\d\d)(\d\d)$/) {
-#print "didn't like $_\n";
+	my $current_date = $from_year . $from_month . $from_day;
+	while ($current_date <= $to_year . $to_month . $to_day) {
+		unless ($current_date =~ /^(\d{4})(\d\d)(\d\d)$/) {
 			next;
 		}
-		my ($year_req, $month_req, $day_req, $hour_req, $min_req, $dayow_req)= ($1, $2, $3, $hour, $min, &get_dayow($_));
-#print "liked $_\n";
+		my ($year_req, $month_req, $day_req, $hour_req, $min_req, $dayow_req) =
+			($1, $2, $3, $hour, $min, &_get_dayow($1, $2, $3));
 
 		my $curr = 1; # whether this date is a go
 		if (%years) {
-			unless  ($years{$year_req}) { $curr = 0; }
+			$curr = 0 unless $years{$year_req};
 		}
 		if (%months) {
-			unless  ($months{$month_req}) { $curr = 0; }
+			$curr = 0 unless $months{$month_req};
 		}
-		# do the days and dayows
-		if ( $day_logic eq "|" ) {
+		if ($day_logic eq '|') {
 			if (%days) {
 				if (%dayows) {
-					unless ($days{$day_req} or $dayows{$dayow_req}) { $curr = 0; }
+					$curr = 0 unless ($days{$day_req} or $dayows{$dayow_req});
 				}
 				else {
-					unless ($days{$day_req}) { $curr = 0; }
+					$curr = 0 unless $days{$day_req};
 				}
 			} elsif (%dayows) {
-				unless ($dayows{$dayow_req}) { $curr = 0; }
+				$curr = 0 unless $dayows{$dayow_req};
 			}
 		}
-		elsif ( $day_logic eq "&" ) {
+		elsif ($day_logic eq '&') {
 			if (%days) {
-				unless ($days{$day_req}) { $curr = 0; }
+				$curr = 0 unless $days{$day_req};
 			}
 			if (%dayows) {
-				unless ($dayows{$dayow_req}) { $curr = 0; }
+				$curr = 0 unless $dayows{$dayow_req};
 			}
 		}
 		else {
 			return ();
 		}
 
-#print  "\$curr = $curr\n";
-		if ($curr and (($hour_now . $min_now) > ($hour_req . $min_req))) { push (@return_dates, ($year_req . $month_req . $day_req . $hour_req . $min_req)); }
+		foreach (keys %dayows) {
+			# *** if we have a periodic request ***
+			if (/\d+\/(\d+)/) { # determine the divisor (x/<divisor>)
+				my $divisor = $1;
+
+				my $calc_period = 7 * $divisor; # determine the period (in the current units)
+				# calc_period = period * divisor (in current units)
+				#FIXME: only works for weeks right now.. maybe forever..
+				# keep adding calc_period to origin until we hit requested date (leave curr alone)
+					# or we go past (curr = 0)
+				my $calc_date = $origin;
+				while ($calc_date < $current_date) {
+					$calc_date = &_add_date($calc_date, $calc_period);
+				}
+
+				if ($calc_date == $current_date) {
+					$curr = 1;
+				}
+			}
+		}
+
+		if ($curr) {
+			if (($to_year . $to_month . $to_day) eq ($year_req . $month_req . $day_req)) {
+				if (($from_hour . $from_min) <= ($hour_req . $min_req) and
+						($to_hour . $to_min) >  ($hour_req . $min_req)) {
+					push (@return_dates, ($year_req . $month_req . $day_req . $hour_req . $min_req));
+				}
+			} else {
+				push (@return_dates, ($year_req . $month_req . $day_req . $hour_req . $min_req));
+			}
+		}
+		$current_date = &_add_date($current_date, 1);
 	}
+
 	return @return_dates;
 }
 
 =pod
 INTERNAL
-sub get_dayow returns numeric day-of-week (0-6) based on 8-digit date
+sub _get_dayow returns numeric day-of-week (0-6) based on numeric year, month, and day
 =cut
-sub get_dayow () {
-	my $ypart = ($1 % 100) + int((($1 % 100) / 4));
-	my @mpart = (6,2,2,5,0,3,5,1,4,6,2,4);
-	my $dpart = $3;
-	my $total = $ypart + $mpart[$2-1] + $dpart;
-	if (int($1/100) == 19) { $total += 1; }
-	if (($1 % 4) == 0) {
-	    if (($2 == 1) or ($2 == 2)) { $total -= 1; }
+sub _get_dayow {
+	my ($y,$m,$d) = @_;
+
+	my $ypart = ($y % 100) + int((($y % 100) / 4));
+	my @mpart = (0,6,2,2,5,0,3,5,1,4,6,2,4);
+	my $dpart = $d;
+	my $total = $ypart + $mpart[$m] + $dpart;
+	if (int($y/100) == 19) { $total += 1; }
+	if (($y % 4) == 0) {
+	    if (($m == 1) or ($m == 2)) { $total -= 1; }
 	}
 
 	while ($total > 6) { $total -= 7; }
@@ -500,29 +391,25 @@ sub get_dayow () {
 
 =pod
 INTERNAL
-sub gen_list takes a string of comma seperated, dash-indicated ranges and retuns all the valid values in a hash
+sub _gen_list takes a string of comma seperated, dash-indicated ranges and returns all the valid values in a hash
  i.e. "2-5,7,8,12-15" returns hash of 2,3,4,5,7,8,12,13,14,15 all set to 1
 =cut
-sub gen_list () {
+sub _gen_list {
 	my %items = ();
-	my $item = $_[0];
+	my ($item) = @_;
 
-	unless ($item eq "*") # leave %items uninitialized if so
-	{
+	unless ($item eq '*') { # leave %items uninitialized if so
 		my @holder = split (/,/, $item);
-		foreach (@holder)
-		{
+		foreach (@holder) {
 			unless (/-/) {
 				$items{$_} = 1;
-			}
-			else {
+			} else {
 				my ($start, $end) = split (/-/);
 				if ($start < $end) {
 					while ($start <= $end) {
 						$items{$start++} = 1;
 					}
-				}
-				else {
+				} else {
 					die "ERROR: item \$start:$start not before \$end:$end";
 				}
 			}
@@ -530,3 +417,277 @@ sub gen_list () {
 	}
 	return %items;
 }
+
+=pod
+INTERNAL
+sub _setup populates %accounts and @transactions
+=cut
+sub _setup {
+	&_renow;
+
+	unless (open (ACCOUNT, "$account_dir/accounts")) {
+		&_initial_setup;
+		return;
+	} else {
+		while (<ACCOUNT>) {
+			chomp;
+			if (/^ACCOUNT (\d+):?(.*)$/) {
+				my ($num, $name) = ($1, $2);
+				if (defined $name) {
+					$name =~ s/^\s+//;
+				} else {
+					$name = '';
+				}
+				$accounts{$num} = {};
+				$accounts{$num}->{'name'} = $name;
+			} elsif (/^(\d{12})\s+(\d+)\s+([-\d\.]+)\s+(.*)$/) {
+				my ($date, $account, $amount, $comment) = ($1, $2, $3, $4);
+				push @transactions,	{	'date' => $date,
+												'account' => $account,
+												'amount' => $amount,
+												'comment' => $comment,
+												'type' => 'transaction',
+											};
+			} else {
+				push @transactions,	{	'line' => $_,
+												'type' => 'comment',
+											};
+			}
+		}
+		close ACCOUNT;
+
+		open (FUTURE, "$account_dir/futures") or return;
+		while (<FUTURE>) {
+			chomp;
+			if (/^ACCOUNT (\d+): (\d{12})$/) {
+				if (defined $accounts{$1}) {
+					$accounts{$1}->{'updated'} = $2;
+				} else {
+					die 'ERROR: account mismatch between accounts and futures for account ' . $1;
+				}
+			} elsif (/^(\S+)\s+(\S+)\s+(\S+)\s+([|&]?)\s*(\S+)\s+(\S+)\s+(\S+)\s+:(\d*):\s+(\d+)\s+(-?[\.\d]+)\s+(.+)$/) {
+				# Isn't that hideous?
+				push @futures,	{	'line'		=> $_,
+										'type'		=> 'pattern',
+										'year'		=> $1,
+										'month'		=> $2,
+										'day'			=> $3,
+										'day_logic'	=> $4 ? $4 : '|',
+										'dayow'		=> $5,
+										'hour'		=> $6 < 10 ? '0'.$6 : $6,
+										'min'			=> $7 < 10 ? '0'.$7 : $7,
+										'origin'		=> $8,
+										'account'	=> $9,
+										'amount'		=> $10,
+										'comment'	=> $11 };
+			} else {
+				push @futures, {	'line' => $_,
+										'type' => 'comment'};
+			}
+		}
+		close FUTURE;
+	}
+}
+
+=pod
+INTERNAL
+sub _writechanges writes new accounts file if there's been a change
+=cut
+sub _writechanges {
+	if (keys %new_accounts) {
+		open (ACCOUNT, ">$account_dir/accounts") or
+			die "ERROR: Cannot open file $account_dir/accounts for writing: $!";
+
+		foreach (sort {$a <=> $b} (keys %accounts, keys %new_accounts)) {
+			if (defined $accounts{$_}) {
+				if ($accounts{$_}->{'name'} ne '') {
+					print ACCOUNT "ACCOUNT $_: " . $accounts{$_}->{'name'} . "\n";
+				} else {
+					print ACCOUNT "ACCOUNT $_\n";
+				}
+			} elsif (defined $new_accounts{$_}) {
+				if ($new_accounts{$_}->{'name'} ne '') {
+					print ACCOUNT "ACCOUNT $_: " . $new_accounts{$_}->{'name'} . "\n";
+				} else {
+					print ACCOUNT "ACCOUNT $_\n";
+				}
+			}
+		}
+
+		foreach (@transactions, @new_transactions) {
+			if ($_->{'type'} eq 'transaction') {
+				print ACCOUNT $_->{'date'} ."\t". $_->{'account'} ."\t". $_->{'amount'} ."\t". $_->{'comment'} ."\n";
+			} elsif ($_->{'type'} eq 'comment') {
+				print ACCOUNT $_->{'line'} ."\n";
+			}
+		}
+		close ACCOUNT;
+
+	} elsif (@new_transactions) {
+		open (ACCOUNT, ">>$account_dir/accounts") or
+			die "ERROR: Cannot open file $account_dir/accounts for appending: $!";
+
+		foreach (@new_transactions) {
+			if ($_->{'type'} eq 'transaction') {
+				print ACCOUNT $_->{'date'} ."\t". $_->{'account'} ."\t". $_->{'amount'} ."\t". $_->{'comment'} ."\n";
+			} elsif ($_->{'type'} eq 'comment') {
+				print ACCOUNT $_->{'line'} ."\n";
+			}
+		}
+
+		close ACCOUNT;
+	}
+
+	# We will always have some futures updates, because we indicate the last time each account was accessed
+	open (FUTURE, ">$account_dir/futures") or
+		die "ERROR: Cannot open file $account_dir/futures for writing: $!";
+
+	&_renow;
+
+	foreach (sort {$a <=> $b} (keys %accounts, keys %new_accounts)) {
+		if (defined $accounts{$_}) {
+			$accounts{$_}->{'updated'} = $now unless $accounts{$_}->{'updated'};
+			print FUTURE "ACCOUNT $_: " . $accounts{$_}->{'updated'} . "\n";
+		} elsif (defined $new_accounts{$_}) {
+			$accounts{$_}->{'updated'} = $now unless $accounts{$_}->{'updated'};
+			print FUTURE "ACCOUNT $_: " . $new_accounts{$_}->{'updated'} . "\n";
+		}
+	}
+
+	foreach (@futures) {
+		print FUTURE $_->{'line'} . "\n";
+	}
+	close FUTURE;
+}
+
+=pod
+INTERNAL
+sub _initial_setup: called when accounts file doesn't exist (never been run before)
+=cut
+sub _initial_setup {
+	&_renow;
+
+	$new_accounts{0}->{'name'} = 'default';
+	$new_accounts{0}->{'updated'} = $now;
+
+	return;
+}
+
+=pod
+INTERNAL
+add days to the given date and return the new date
+=cut
+sub _add_date {
+	my ($date, $added) = @_;
+
+	$date =~ /^(\d{4})(\d\d)(\d\d)$/;
+
+	my $year = $1;
+	my $month = $2;
+	my $day = $3;
+
+	# Make sure it's all numeric so the hash below works and our comparisons are valid
+	$day += $added;
+	$month *= 1;
+
+	# months are crazy go nuts..
+	# I couln't find a an easy-enough to use package to do this, so I wrote it myself, no doubt introducing numerous bugs..
+	my %months = ( 1 => 31,  2 => 28,  3 => 31,
+	               4 => 30,  5 => 31,  6 => 30,
+   	            7 => 31,  8 => 31,  9 => 30,
+      	        10 => 31, 11 => 30, 12 => 31);
+
+	my $leap = 0;
+
+	while ($day > $months{$month}) {
+		if ($month == 2 && (($year % 4) == 0)) {
+			if (29 == $day)
+			{
+				$leap = 1;
+				$day = 28; # so we don't get stuck in the loop, we'll set it back to 29 later
+			}
+			else
+			{
+				$day -= 29;
+				$month++;
+			}
+		}
+		else {
+			$day -= $months{$month};
+			$month++;
+		}
+
+		while ($month > 12)
+		{
+			$month -= 12;
+			$year++;
+		}
+	}
+
+	if ($leap)
+	{
+		$day = 29;
+		$leap = 0;
+	}
+
+	while ($month > 12)
+	{
+		$month -= 12;
+		$year++;
+	}
+
+	if ($year > 9999)
+	{
+		print STDERR "WARNING: Calculated year is huge: $year\n";
+		$year = 9999;
+	}
+
+	$month *= 1; $day *= 1;
+
+	if ($month < 10) {
+		$month = "0" . $month;
+	}
+	if ($day < 10) {
+		$day = "0" . $day;
+	}
+
+	return $year . $month . $day;
+}
+
+=pod
+DEPRECATED
+sub datedbalance: determines balance at given future time
+  usage: &Brinance::datedbalance ( $date )
+  return balance at $date
+=cut
+sub datedbalance {
+	return &balance (@_);
+}
+
+=pod
+DEPRECATED
+sub datedtrans: applies a transaction at specified future time
+  usage: &Brinance::datedtrans ( &date, $amount, $comment )
+  return values:
+   0 - success
+  -1 - too few arguments, needs three
+  -2 - zero-value transaction
+=cut
+sub datedtrans {
+	if (defined $_[0] and defined $_[1] and defined $_[2]) { # trans takes the date last, datedtrans took it first, so we need to switch things around
+		return &trans ($_[1], $_[2], $_[0]);
+	} else {
+		return -1;
+	}
+}
+
+=pod
+DEPRECATED
+sub update_futures: used to update accounts with future patterns from futures file
+now this is done implicitly with switch_acct
+=cut
+sub update_futures {
+	return;
+}
+
+1;

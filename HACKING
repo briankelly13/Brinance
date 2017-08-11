@@ -11,14 +11,21 @@ criticism.
 
 **File format
 
-   The file format has changed pretty drastically in version 4. Now there is only one file for all normal past and future transactions in all accounts. Now all the information for the transaction is on one line, including the account to which it applies. Future and past transactions are in the same file, and are only differentiated by the code as being before the requested date or after (the same date is considered to be before).
+   The file format has changed pretty drastically in version 4. Now there is
+only one file for all normal past and future transactions in all accounts. Now
+all the information for the transaction is on one line, including the account to
+which it applies. Future and past transactions are in the same file, and are
+only differentiated by the code as being before the requested date or after (the
+same date is considered to be before).
    A line looks like so:
 
-<date> <account> <amount> <description>
+<date> <account> <amount> <comment>
 
-       <date>: 12-digit time stamp, out to the minute; noon on June 27th, 1981 is 198106271200
-    <account>: the brinance account number; a positive integer, usually a very low number
-     <amount>: the amount to add to the balance, positive for credits, negative for debits
-<description>: freeform text to describe the transaction
+   <date>: 12-digit time stamp, out to the minute; noon on June 27th, 1981 is 198106271200
+<account>: the brinance account number; a positive integer, usually a very low number
+ <amount>: the amount to add to the balance, positive for credits, negative for debits
+<comment>: freeform text to describe the transaction
 
-   The space between elements can be whatever Perl thinks \s is. By default, brinance writes a single tab between each field, but it could be any non-breaking white-space.
+   The space between elements can be whatever Perl thinks \s is. By default,
+brinance writes a single tab between each field, but it could be any
+non-breaking white-space.

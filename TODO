@@ -1,16 +1,16 @@
-* Change the file format: <date><sp><account><sp><amount><sp><comment>
-	One trans per line
-	Would have to include a conversion script
-	New versions would have to detect and warn about old format
-	- Consolidate all accounts to one file by indicating account on each line
-	- Future and past all in one file
-	- Future file only contains recurring patterns now (like in minder)
-	- Deprecate dated methods, allow balance and trans to take a date or not
-	- CLI should be mostly unchanged (hence, API should remain pretty stable)
-
 * Future patterns in futures file; patterns like minder
 
 * Maybe add the ability to automagically calculate interest.. Be^(rt) and all..
 
 * GTK - use glade..
 
+* Add less specific dates in dated functions; '-B 1217' means at 12:17pm today,
+   '-B 04301835' means at 6:35pm of April 30th of this year, etc.. <DONE>
+	- always show date of dated transaction**
+
+* Add summary option - show all account balances and names
+	- optional account number range? some way to categorize accounts (100s are
+credit payoffs, 200s are vacation savers, 300s are christmas/borthday savers,
+etc..)
+	- need to change file handling -- read accounts into a data structure, only
+manipulate there, write new file if necessary

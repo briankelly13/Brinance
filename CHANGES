@@ -1,3 +1,6 @@
+* 20050503 - Added less specific dates in dated functions; '-B 1217' means at
+12:17pm today, '-B 04301835' means at 6:35pm of April 30th of this year, etc..
+
 * 20040624 - Patterns closer to working, but they still don't; doing final prep
 for a pre-release that has all the functionality of the old version, but none of
 the new stuff, except for the file format and the conversion tool
