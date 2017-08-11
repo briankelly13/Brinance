@@ -4,10 +4,10 @@
 
    Version of 3 of Brinance introduced a Perl module that does all the heavy
 lifting for you. Herein, you'll find documentation for each subroutine and
-variable in the module. This is current as of moduls version 3.92, found in
-brinance version 3.95.
+variable in the module. This is current as of version 3.93, found in brinance
+version 3.96. Some subroutines have been deprecated since version 3.x.
 
-subroutines:
+SUBROUTINES:
 
 sub &Brinance::version ():
    Takes no arguments. Returns the value of the global $VERSION string, the
@@ -37,38 +37,9 @@ debits, positive amounts are credits. The subroutine returns as follows:
 non-number was passed as the transaction amount
   -3 => Invalid date format
 
-**Deprecated: Use sub &Brinance::balance**
-sub &Brinance::datedbalance ( $date ):
-   Takes one argument: a date in 12-digit format (YYYYMMDDHHmm, e.g.
-200306271645). Calculates the balance for the current account at the specified
-date. The calling code must be careful to supply a properly formatted date, or
-the output may be unreliable. The subroutine returns as follows:
-   0    => dated balance is 0, or there are not enough arguments
-   else => dated balance is returned
-
-**Deprecated: Use sub &Briance::trans**
-sub &Brinance::datedtrans ( $date, $amount, $comment ):
-   Takes three arguments: a date in 12-digit format (YYYYMMDDHHmm, e.g.
-200306271645), a transaction amount and a transaction comment in 12-digit format
-(YYYYMMDDHHmm, e.g. 200306271645). Applies the transaction at the specified
-date. The subroutine returns as follows:
-   0 => success
-  -1 => Too few arguments (three are required)
-  -2 => A zero-value transaction, which is meaningless, and might mean a
-non-number was passed as the transaction amount
-  -3 => Invalid date format
-
-**Deprecated: future transactions are tracked in the same file as other
-transactions now.**
-sub &Brinance::update_future ():
-   Takes no arguments. Scans future file for the current account to see if there
-are any transactions that are now in the past. If so, they are applied to the
-current account file. Returns nothing.
-
-sub &Brinance::create ( $accountName, $accountNumber ): 
-   Takes two arguments: an account name and an account number. If you want to
-create an account without a name, simply create two files (account# and
-future#). The subroutine returns as follows:
+sub &Brinance::create ( $accountName, $accountNumber ):
+   Takes two arguments: an account name and an account number. The account name
+can be an empty string. The subroutine returns as follows:
    1 => The requested account already exists, no change
    0 => success
   -1 => Too few arguments (two are required)
@@ -81,26 +52,54 @@ there is a NAME line in the accounts file. The subroutine returns as follows:
    0 => account exists, success
   -1 => account doesn't exist, unsafe to use
 
-sub &Brinance::renow ():
+**Internal; you shouldn't need to call this function
+sub &Brinance::_renow ():
    Takes no arguments. Reinitializes the $Brinance::now variable to the current
 time. Should not need to be called by external code; only used within the
 module. Returns nothing.
 
-variables: No calling program should need to modify these variables.
+**Deprecated: Use sub &Brinance::balance**
+sub &Brinance::datedbalance ( $date ):
+   Takes one argument: a date in 12-digit format (YYYYMMDDHHmm, e.g.
+200306271645). Calculates the balance for the current account at the specified
+date. The calling code must be careful to supply a properly formatted date, or
+the output may be unreliable. The subroutine returns as follows:
+   0    => dated balance is 0, or there are not enough arguments
+   else => dated balance is returned
+
+**Deprecated: Use sub &Briance::trans**
+sub &Brinance::datedtrans ( $date, $amount, $comment ):
+   Takes three arguments: a date in 12-digit format (YYYYMMDDHHmm, e.g.
+200306271645), a transaction amount and a transaction comment. Applies the
+transaction at the specified date. The subroutine returns as follows:
+   0 => success
+  -1 => Too few arguments (three are required)
+  -2 => A zero-value transaction, which is meaningless, and might mean a
+non-number was passed as the transaction amount
+  -3 => Invalid date format
+
+**Deprecated: This functionality occurs implicitly now when switch_acct is
+called. This is now a no-op.**
+sub &Brinance::update_future ():
+   Takes no arguments. Scans future file for the current account to see if there
+are any transactions that are now in the past. If so, they are applied to the
+current account file. Returns nothing.
+
+   All other functions in the module are internal only and are not meant to be
+called by outside code.
+
+VARIABLES: No calling program should need to modify these variables. They can be
+used for reference.
 
 $Brinance::current_acct:
-   The number of the current account. This is the number at the end of the
-account and future files, as in account0 and future0 for
-$Brinance::current_acct = 0. This is set by using the &Brinance::switch_acct
-method.
+   The number of the current account. This is set by using the
+&Brinance::switch_acct method.
 
 $Brinance::$now:
-   The current date and time in 12-digit format. The format is the same as what
-you get if you run: `date +%C%y%m%d%H%M`. This is automatically set inside the
-module anytime before it might need the current date.
+   The current date and time in 12-digit format, just as if running the command:
+`date +%C%y%m%d%H%M`. This is automatically set inside the module anytime before
+it might need the current date. The &_renow method is used to do this.
 
 $Brinance::$account_dir:
    A string indicating where Brinance looks for all of its account files,
-generally set to ~/.brinance/. This is statically initialized inside the module
-code.
-
+generally set to ~/.brinance/. This is initialized inside the module code.

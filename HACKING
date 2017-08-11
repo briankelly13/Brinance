@@ -2,12 +2,7 @@
  How to hack brinance
 ======================
 
-   Brinance is written in Perl, and it's fairly simple code. It's my first major
-project in Perl, so I bet my coding style could use some brushing up. Anyway, it
-should be pretty easy to follow, I think.
-   Anyway, I'm still pretty new to Perl, so if you think my code sucks, please
-tell me why! Or if you've just got some pointers, I'd love to hear any
-criticism.
+   Brinance is written in Perl, and it's fairly simple code.
 
 **File format
 
@@ -19,13 +14,16 @@ only differentiated by the code as being before the requested date or after (the
 same date is considered to be before).
    A line looks like so:
 
-<date> <account> <amount> <comment>
+<date> <account> <amount> <description>
 
-   <date>: 12-digit time stamp, out to the minute; noon on June 27th, 1981 is 198106271200
-<account>: the brinance account number; a positive integer, usually a very low number
- <amount>: the amount to add to the balance, positive for credits, negative for debits
-<comment>: freeform text to describe the transaction
+       <date>: 12-digit time stamp, out to the minute; noon on June 27th, 1981 is 198106271200
+    <account>: the brinance account number; a positive integer, usually a very low number
+     <amount>: the amount to add to the balance, positive for credits, negative for debits
+<description>: freeform text to describe the transaction
 
    The space between elements can be whatever Perl thinks \s is. By default,
 brinance writes a single tab between each field, but it could be any
 non-breaking white-space.
+
+**API
+   See the SPEC file included with the distribution for more info on the API.

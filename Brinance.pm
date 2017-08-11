@@ -29,7 +29,7 @@ package Brinance;
 require Exporter;
 
 our @ISA = ('Exporter');
-our $VERSION = '3.95';
+our $VERSION = '4.00';
 our @EXPORT_OK = qw(	$current_acct $now $account_dir
 							&getName &balance &trans &get_accts
 							&version &create &switch_acct);
@@ -86,6 +86,21 @@ sub balance {
 			if	$t->{'type'} eq 'transaction' and
 				$t->{'account'} == $current_acct and
 				$t->{'date'} <= $date_req;
+	}
+
+	if ($date_req > $now) {
+		foreach my $fut (@futures) {
+			my @dates = ();
+			if (($fut->{'type'} eq 'pattern') and ($fut->{'account'} == $current_acct)) {
+				@dates = &_calc_future_patterns ($fut->{'year'}, $fut->{'month'}, $fut->{'day'},
+					$fut->{'day_logic'}, $fut->{'dayow'}, $fut->{'hour'}, $fut->{'min'}, $fut->{'origin'},
+					$now, $date_req);
+
+				foreach my $date (@dates) {
+					$total += $fut->{'amount'};
+				}
+			}
+		}
 	}
 
 	return $total;

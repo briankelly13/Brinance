@@ -31,11 +31,10 @@ which I'll explain a bit more below:
 
 [loco@erebor]% brinance --help
 Usage:
-
-  $ brinance <args>
+        $ brinance <args>
 
   Accepted args:
-     -b --balance -> show balance
+     -b --balance -> show current balance
         $ brinance -b
      -B --datedbalance -> show dated balance
         $ brinance -B 200306271200
@@ -48,11 +47,15 @@ Usage:
      -D --dateddebit -> apply dated debit
         $ brinance -D 200306271200 <amount> <comment>
      -# -> (as in, a number) all following arguments refer to this account
-        $ brinance -2 <action>
+        $ brinance -2 <more arguments>
      -n --name -> get the name of the active account
         $ brinance -4 -n
+     -a --all -> show details of all accounts
+        $ brinance -a
+     -A --datedall -> show details of all accounts at given date
+        $ brinance -A 200306271200
      -r --create -> create a new account
-        $ brinance -r <account description> <account number>
+        $ brinance -r <account number> <account description>
      -h --help -> help
         $ brinance -h
      -v --version -> version
@@ -90,7 +93,7 @@ account1 dated balance: 883.74
 
 =========================================================
       When specifying a 12-digit date, you can specify a future date or a past
-date. The ability to check what your balance was some times aeons ago is
+date. The ability to check what your balance was some times eons ago is
 supported.
 
    -c --credit
@@ -136,11 +139,50 @@ Balance: 777.31
    -n --name
       Get the name of the active account. If there isn't a name on the specified
 account, it'll say so.
+=========================================================
 
 [loco@erebor]% brinance -n -2 -n
 account0 name: checking account
 Now working with account2
 No name for account2
+
+=========================================================
+
+   -a --all
+      Print the name and current balance of each account
+=========================================================
+
+[loco@erebor]% brinance -a
+--
+Account 0: default
+Balance: 9450.00
+--
+Account 1: new
+Balance: 27000.00
+--
+Account 2: <No Name>
+Balance: 2.00
+--
+
+=========================================================
+
+   -A --datedall
+      Like -a, but requires a date in the same format as -[BCD]
+=========================================================
+
+[loco@erebor]% brinance -A +10
+--
+Account 0: default
+Balance at 200603251323: 9800.00
+--
+Account 1: new
+Balance at 200603251323: 28000.00
+--
+Account 2: <No Name>
+Balance at 200603251323: 2.00
+--
+
+=========================================================
 
    -r --create
       Create a new account. You will have to manually do this for every account
@@ -159,4 +201,116 @@ ERROR: account17 already exists
 
    -v --version
       Print the versions of the brinance CLI and module that you are running.
+
+
+===========================
+ Using the futures feature
+===========================
+
+   One of the major new features of Brinance 4.x is the ability to express
+recurring transactions. Older versions allowed you to post individual
+transactions in the future, but this version allows you to express, for
+instance, a transaction that posts every Friday from now indefinitely (like a
+paycheck). To let Brinance know about a recurring transaction you want, you have
+to create a pattern. This pattern lets Brinance know the schedule of the
+recurring transaction you want. Because the pattern is very different than what
+goes into the Brinance accounts file, there's a whole file just for these
+patterns, the futures file.
+   If you've been running a 4.x version of Brinance (or a pre-release), the
+futures file already exists in your Brinance directory. Just run the program
+once, and the file will be created for you.
+   You need to add a line in the file for each recurring transaction (e.g., your
+weekly paycheck). The patterns on these lines are similar to the patterns used
+for the UNIX cron daemon, but slightly different to meet the needs of Brinance.
+Here's the layout of these patterns:
+
+<YEAR> <MONTH> <DATE> <DAY-LOGIC> <WEEKDAY> <HOUR> <MINUTE> :<ORIGIN>: <ACCOUNT> <AMOUNT> <DESCRIPTION>
+
+<YEAR> - 4 digit year
+<MONTH> - numeric month (12 is December) or the first 3 letters of the month's
+	name (e.g. Jun)
+<DATE> - day of the month
+<DAY-LOGIC> - determines whether we apply a transaction when the current date
+	matches the date AND weekday, or the date OR weekday; defaults to OR, so
+	you can leave it off
+<WEEKDAY> - day of the week, 1-7 (for Monday - Sunday), or first three letters
+	of the name of the day (e.g. Wed)
+<HOUR> - The hour when to apply the transaction if the pattern matches today
+<MINUTE> - The minute of the hour when to apply the transaction if the pattern
+	matches today
+:<ORIGIN>: - used in some more complex patterns to specify when to first apply
+<ACCOUNT> - which account this transaction affects
+<AMOUNT> - how much
+<DESCRIPTION> - a transaction description
+
+   <YEAR>, <MONTH>, <DATE>, and <WEEKDAY> can all simply be a '*' by itself,
+which indicates that the pattern matches any value in this field. The
+every-Friday paycheck example we used above would look like this:
+
+* * * Fri 0 0 :: 1 500 Paycheck
+
+   This would apply the transaction every Friday morning at midnight.
+   What if you get paid every other Friday? That's a little trickier, but
+doable. The trick is that you have to give an origin date, an example of a
+Friday on which you do get paid, so Brinance knows where to start. This is like
+Brinance's 12-digit dates, but you don't specify hour or minute, so it's only 8
+digits. Like so:
+
+* * * Fri/2 0 0 :20060303: 1 1000 Paycheck
+
+======
+ TIPS
+======
+
+**Option Grouping (bundling)
+
+   You can put options (the arguments that start with a '-') together into
+option "bundles." For instance:
+=========================================================
+
+[loco@erebor]% brinance -b -1 -b
+
+=========================================================
+
+   ... is the same as ...
+=========================================================
+
+[loco@erebor]% brinance -b1b
+
+=========================================================
+   You can save some typing time..
+
+
+**Less Specific Dates
+
+   Brinance can figure out what date you mean if you give it a less specific
+date. This can also be a typing time saver.
+=========================================================
+
+[loco@erebor]% brinance -B 1700
+
+=========================================================
+
+   The above command will tell you the balance at 5pm today. Note that it won't
+give the balance at the most recent 5pm, but only today's, whether that's in the
+past or the future. You only have to give the parts of the date that are
+different from right now. So, if the 12-digit date for right now is
+'200603151330', and you want to apply a transaction from 11:00AM this morning,
+you only need to type:
+=========================================================
+
+[loco@erebor]% brinance -D 1100 1.09 "bottle of coke"
+
+=========================================================
+
+   If the transaction was last week sometime, just specify the date, too.
+=========================================================
+
+[loco@erebor]% brinance -D 091348 23.47 gas
+
+=========================================================
+
+   Notice that there is a leading zero on that date. If that was left off,
+Brinance would assume you meant '191348', because the date now is
+'200603151330', and it's just combining what you inputted with the current date.
 

@@ -29,7 +29,7 @@ use strict;
 use lib "$ENV{HOME}/.brinance/lib";
 use Brinance;
 
-my $VERSION = '3.97';
+my $VERSION = '4.00';
 my @arglist;
 
 # We first pull apart all arguments and push them or their equivalent onto @arglist
