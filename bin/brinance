@@ -1,0 +1,851 @@
+#!/usr/bin/perl
+#
+# This software released under the terms of the GNU General Public License 2.0
+#
+# Copyright (C) 2003-2007 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 2.0.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# brinance - simple UNIX command-line interface to Brinance Perl personal
+#            finance planner tracker
+#
+#		tabstop = 4		(These two lines should line up)
+#       tabstop = 4     (These two lines should line up)
+
+use warnings;
+use strict;
+
+=head1 NAME
+
+brinance - CLI interface to Brinance module
+
+=head1 VERSION
+
+Version 4.45
+
+=head1 SYNOPSIS
+
+This is the author's Brinance CLI program. It's supposed to be useful
+in and of itself, but the code should also be helpful in developing a 
+different interface to the same module.
+
+=cut
+
+use Brinance;
+
+my $VERSION = '4.45';
+
+# We first pull apart all arguments and push them or their equivalent onto @arglist
+my @arglist;
+my %options = (
+	'help'			=> 'h',
+	'version'		=> 'v',
+	'credit'		=> 'c',
+	'debit'			=> 'd',
+	'balance'		=> 'b',
+	'datedcredit'	=> 'C',
+	'dateddebit'	=> 'D',
+	'datedbalance'	=> 'B',
+	'name'			=> 'n',
+	'create'		=> 'r',
+	'all'			=> 'a',
+	'datedall'		=> 'A',
+	'transfer'		=> 't',
+	'datedtransfer'	=> 'T',
+);
+my $validoptions = join '', (values %options);
+
+foreach (@ARGV) {
+	if (/^--./) { # GNU style option
+		my $gnu_option = substr $_, 2;
+
+		if (defined $options{$gnu_option}) {
+			push @arglist, '-' . $options{$gnu_option};
+		} else {
+			print STDERR "ERROR: Unrecognized GNU style option: '$gnu_option'\n";
+			&usage(1);
+		}
+	} elsif (/^-./) {
+		my @opts = split //, (substr $_, 1);
+
+		my $num = undef;
+		foreach my $opt (@opts) {
+			if ($opt =~ /[$validoptions]/o) {
+				if (defined $num) {
+					push @arglist, "-$num";
+					$num = undef;
+				}
+				push @arglist, "-$opt";
+			} elsif ($opt =~ /\d/) {
+				if (defined $num) {
+					$num .= $opt;
+				} else {
+					$num = $opt;
+				}
+			} else {
+				print STDERR "ERROR: Unrecognized option: '-$opt'\n";
+				&usage(1);
+			}
+		}
+
+		if (defined $num) {
+			push @arglist, "-$num";
+		}
+	} else {
+		push @arglist, $_;
+	}
+}
+
+unless (@arglist) {
+	print "Starting in menu-mode..\n";
+	&menu();
+	exit 0;
+}
+
+# check if we need to convert old account# files to an accounts file
+#  if so, suggest they run the included conversion script (don't want conv code in here..)
+if ( !(-e "$account_dir/accounts") and -e "$account_dir/account0") {
+	print "It looks like you've been running an older version of brinance.\n";
+	print "You will need to convert your account files to the new format.\n";
+
+	print "\nRun the 'conv/toV4' script that was included with this brinance package.\n";
+
+	exit (1);
+}
+
+&switch_acct (0); # sets us up to use account 0
+
+# Process @arglist
+while (@arglist) {
+	local $_ = shift @arglist;
+
+	if (/^-(\d+)$/) {
+		my $out = &switch_acct ($1 + 0);
+
+		if (1 == $out) {
+			print STDERR "WARNING: Created account 0 (this shouldn't happen here..)\n";
+		} elsif (0 == $out) {
+			print "-- working with account $current_acct\n";
+		} elsif (-1 == $out) {
+			print STDERR "ERROR: account $current_acct doesn't exist.\nUse -r or --create\n";
+			&usage (1);
+		} else {
+			print STDERR "ERROR: &switch_acct undefined output. Check your data. Exitting..\n";
+			exit (1);
+		}
+	} elsif ($_ eq '-v') {
+		&cli_version();
+	} elsif ($_ eq '-h') {
+		&usage (0, 1);
+	} elsif ($_ eq '-b') {
+		printf ("Balance: %.2f\n", &balance ());
+	} elsif ($_ eq '-c') {
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 1);
+	} elsif ($_ eq '-d') {
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 0);
+	} elsif ($_ eq '-C') {
+		my $date = shift @arglist;
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 1, $date);
+	} elsif ($_ eq '-D') {
+		my $date = shift @arglist;
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 0, $date);
+	} elsif ($_ eq '-B') {
+		my $date = shift @arglist;
+
+		if ($date) {
+			if ($date =~ /^\d{2,12}$/ or $date =~ /^\+(\d+)$/) {
+				$date = &handleDate($date);
+			} else {
+				print STDERR "ERROR: date not in 12-digit or +<days> format\n";
+				&usage (1);
+			}
+
+			printf "account $current_acct balance at $date: %.2f\n", &balance($date);
+		} else {
+			print STDERR "ERROR: dated balance requires an argument\n";
+			&usage (1);
+		}
+	} elsif ($_ eq '-n') {
+		if (my $name = &getName()) {
+			print "account $current_acct name: $name\n";
+		} else {
+			print "No name for account $current_acct\n";
+		}
+	} elsif ($_ eq '-r') {
+		my $account = shift @arglist;
+		my $name = shift @arglist;
+
+		if ($name && defined $account) {
+			my $out = &create ($name, $account);
+
+			if (1 == $out) {
+				# already exists
+				print "account $account already exists\n";
+				exit (0);
+			} elsif (0 == $out) {
+				# success
+				print "account $account created successfully\n";
+			} elsif (-1 == $out) {
+				# too few
+				print "too few arguments to create()\n";
+			} else {
+				print STDERR "ERROR: undefined output from getName(); Check your accounts file..\n";
+				print "Exitting..\n";
+				exit (1);
+			}
+		} else {
+			print STDERR "ERROR: too few arguments to create\n";
+			&usage (1);
+		}
+	} elsif ($_ eq '-a') {
+		&printAccountSummary();
+	} elsif ($_ eq '-A') {
+		my $date = &handleDate(shift @arglist);
+		&printAccountSummary($date);
+	} elsif ($_ eq '-t') {
+		my $amount = shift @arglist;
+		my $from = shift @arglist;
+		my $to = shift @arglist;
+		my $comment = shift @arglist;
+
+		&transfer($now, $amount, $from, $to, $comment);
+	} elsif ($_ eq '-T') {
+		my $date = shift @arglist;
+		my $amount = shift @arglist;
+		my $from = shift @arglist;
+		my $to = shift @arglist;
+		my $comment = shift @arglist;
+
+		&transfer($date, $amount, $from, $to, $comment);
+	} else {
+		# unrecognized option/argument
+		print STDERR "ERROR: Unrecognized option: '$_'\n";
+		&usage (1);
+	}
+}
+
+exit (0);
+
+=head1 FUNCTIONS
+
+=head2 usage ( )
+
+shows how to invoke the command-line program
+
+=cut
+sub usage {
+	my ($exit, $verbose) = @_;
+	my $exec = 'brinance';
+
+	if ($verbose) {
+		print "Usage:
+    \$ $exec <args>\n
+ Accepted args:
+  -b --balance -> show current balance
+    $exec -b
+  -B --datedbalance -> show dated balance
+    $exec -B 200306271200
+  -c --credit -> apply credit
+    $exec -c <amount> <comment>
+  -C --datedcredit -> apply dated credit
+    $exec -C 200306271200 <amount> <comment>
+  -d --debit -> apply debit
+    $exec -d <amount> <comment>
+  -D --dateddebit -> apply dated debit
+    $exec -D 200306271200 <amount> <comment>
+  -t --transfer -> transfer an amount from one account to another
+    $exec -t <amount> <account number from> <account number to> <comment>
+  -T --datedtransfer -> dated transfer
+    $exec -T 200306271200 <amount> <account number from> <account number to> <comment>
+  -# -> (as in, a number) all following arguments refer to this account
+    $exec -2 <more arguments>
+  -n --name -> get the name of the active account
+    $exec -4 -n
+  -a --all -> show details of all accounts
+    $exec -a
+  -A --datedall -> show details of all accounts at given date
+    $exec -A 200306271200
+  -r --create -> create a new account
+    $exec -r <account number> <account description>
+  -h --help -> help
+    $exec -h
+  -v --version -> version
+    $exec -v\n";
+
+		print "\nSee README for more information.\n";
+	} else {
+		print "For more information, type:\n\t$exec --help\n";
+	}
+
+	exit $exit;
+}
+
+=head2 CLItrans ( AMOUNT, COMMENT, CREDIT, DATE )
+
+applies a transaction
+
+=cut
+sub CLItrans {
+	my ($amount, $comment, $credit, $date) = @_;
+
+	if (defined $amount && $amount == 0) {
+		$amount .= '.00';
+	}
+
+	$amount = $credit ? $amount : -1 * $amount;
+
+	my $date_mod;
+	if ($amount and $comment) {
+		my $out;
+		if (defined $date) {
+			if ($date =~ /^\d{2,12}$/ or $date =~ /^\+\d+$/ ) {
+				$date_mod = &handleDate($date);
+			} else {
+				print STDERR "ERROR: date not formatted correctly\n";
+				&usage(1);
+			}
+
+			$out = &trans ($amount, $comment, $date_mod);
+		} else {
+			$out = &trans ($amount, $comment);
+		}
+
+		if (&checkTransOutput($out)) {
+			print 'Dated transaction applied: ';
+
+			if (defined $date_mod && $date_mod > $now) {
+				printf "Balance at date $date_mod: %.2f\n", &balance($date_mod);
+			} else {
+				printf "Balance after transaction: %.2f\n", &balance();
+			}
+		} # else: bad output is handled in above function
+	} else {
+		print STDERR "ERROR: too few arguments for transaction\n";
+		&usage (1);
+	}
+}
+
+=head2 handleDate ( DATE )
+
+returns a 12-digit date given a +<date>, <12-digit, or 12-digit
+
+=cut
+sub handleDate {
+	my ($in) = @_;
+
+	my $date;
+	if ($in =~ /^\+\d+$/) {
+		my $plus = substr $in, 1;
+		$plus *= 86400;
+		my ($min, $hour, $mday, $mon, $year) = (localtime(time+$plus))[1, 2, 3, 4, 5];
+
+		$year += 1900;
+		$mon += 1;
+		foreach my $i ($mon, $mday, $hour, $min) {
+			if ($i < 10) {
+				$i = '0' . $i;
+			}
+		}
+		$date = $year . $mon . $mday . $hour . $min;
+	} elsif ($in =~ /^\d{12}$/) {
+		$date = $in;
+	} elsif ($in =~ /^\d{1,11}$/) {
+		$date = (substr ($now, 0, 12 - (length $in))) . $in;
+	} else {
+		print STDERR "ERROR: invalid date format: $in\n";
+		&usage (1);
+	}
+
+	return $date;
+}
+
+=head2 printAccountSummary ( [DATE] )
+
+prints account summary
+
+=cut
+sub printAccountSummary {
+	my ($date) = @_;
+	my $dated;
+	if (defined $date) {
+		$dated = 1;
+	} else {
+		$dated = 0;
+		$date = $now;
+	}
+
+	my $ca = $current_acct;
+
+	print "--\n";
+	my @accts = &get_accts();
+	my $total = 0;
+	foreach my $acct (@accts) {
+		if (0 == &switch_acct($acct)) {
+			my $bal = &balance($date);
+			$total += $bal;
+			my $name = &getName;
+			$name = $name ? $name : '<No Name>';
+			if ($dated) {
+				print "Account $acct: $name\nBalance at $date: " . sprintf('%.2f', $bal) . "\n--\n";
+			} else {
+				print "Account $acct: $name\nBalance: " . sprintf('%.2f', $bal) . "\n--\n";
+			}
+		}
+	}
+
+	if ($dated) {
+		print "Total at $date: " . sprintf('%.2f', $total) . "\n--\n";
+	} else {
+		print "Total: " . sprintf('%.2f', $total) . "\n--\n";
+	}
+
+	&switch_acct($ca);
+}
+
+=head2 transfer ( DATE, AMOUNT, FROM, TO, COMMENT )
+
+transfers amount from one account to another in one action
+
+=cut
+sub transfer {
+	my ($date, $amount, $from, $to, $comment) = @_;
+	$from += 0;
+	$to += 0;
+	my $ca = $current_acct;
+	$date = &handleDate($date);
+
+	# check existence of both accounts before anything else
+	if (0 != &switch_acct($to)) {
+		print STDERR "ERROR: account #$to doesn't exist\n";
+		&usage(1);
+	}
+	if (0 != &switch_acct($from)) {
+		print STDERR "ERROR: account #$from doesn't exist\n";
+		&usage(1);
+	}
+
+	# debit from-account
+	my $out = &trans (-1 * $amount, "transfer to account #$to: $comment", $date);
+	if (&checkTransOutput($out)) {
+		printf "Transaction applied to account #$from: Balance at date $date: %.2f\n", &balance($date);
+	} # else: bad output is handled in above function
+
+	# credit to-account
+	&switch_acct($to);
+	$out = &trans ($amount, "transfer from account #$from: $comment", $date);
+	if (&checkTransOutput($out)) {
+		printf "Transaction applied to account #$to: Balance at date $date: %.2f\n", &balance($date);
+	} # else: bad output is handled in above function
+
+	#switch back
+	&switch_acct($ca);
+}
+
+=head2 checkTransOutput ( TRANS_RETURN )
+
+handles the output of &Brinance::trans
+
+=cut
+sub checkTransOutput {
+	my ($out) = @_;
+
+	if (0 == $out) {
+		return 1;
+	} elsif (-1 == $out) {
+		print STDERR "ERROR: too few arguments to trans()\n";
+		&usage (1);
+	} elsif (-2 == $out) {
+		print STDERR "ERROR: zero-value transaction\n";
+		&usage (1);
+	} elsif (-3 == $out) {
+		print STDERR "ERROR: invalid date format specified\n";
+		&usage (1);
+	} else {
+		print STDERR "ERROR: undefined output from trans(); Check your accounts file..\n";
+		print STDERR "Exitting..\n";
+		exit (1);
+	}
+
+	return 0; # shouldn't get here
+}
+
+=head2 menu ( )
+
+presents the menu interface
+
+=cut
+sub menu {
+	my %menu_options = (
+		'c' => {
+			text => 'Apply a credit',
+			action => sub { &menu_trans(1) },
+		},
+		'd' => {
+			text => 'Apply a debit',
+			action => sub { &menu_trans(-1) },
+		},
+		'a' => {
+			text => 'Change current account',
+			action => \&change_account,
+		},
+		'q' => {
+			text => 'Quit',
+			action => sub { exit 0 },
+		},
+		'b' => {
+			text => 'Check current balance of current account',
+			action => sub { printf ("Balance: %.2f\n", &balance ()) },
+		},
+		's' => {
+			text => 'Get accounts summary',
+			action => \&menu_accounts_summary,
+		},
+		't' => {
+			text => 'Transfer from one account to another',
+			action => \&menu_transfer,
+		},
+		'v' => {
+			text => 'Get brinance version',
+			action => \&cli_version,
+		},
+		'n' => {
+			'text' => 'Create new account',
+			'action' => \&menu_create_account,
+		},
+	);
+
+	while (1) {
+		print "-----------------------------\n";
+		print "Current account: $current_acct\n";
+		print "What would you like to do?\n";
+		foreach (sort {
+			# make Quit appear last
+			return 1 if $a eq 'q';
+			return -1 if $b eq 'q';
+			return $a cmp $b;
+		} keys %menu_options) {
+			print "$_) $menu_options{$_}{'text'}\n";
+		}
+
+		print "\n> ";
+		my $in = <STDIN>;
+		chomp $in;
+		$in = lc $in;
+
+		if (exists $menu_options{$in}) {
+			&{$menu_options{$in}{'action'}};
+		} else {
+			print "Bad choice: '$in'\nChoose again.\n\n";
+		}
+	}
+}
+
+=head2 menu_trans ( MULTIPLIER )
+
+presents menu-driven transaction interface
+
+=cut
+sub menu_trans {
+	my ($mult) = @_;
+
+	my $name = $mult == -1 ? 'debit' : 'credit';
+
+	print "\n=== " . uc($name) . " ===\n";
+
+	my ($amount, $date, $comment);
+
+	my $bad_entry = 1;
+	while ($bad_entry) {
+		print "Please enter $name amount: ";
+		$amount = <STDIN>;
+		chomp $amount;
+
+		if ($amount =~ /\d/ and $amount =~ /^[-\d.]*$/) {
+			$amount *= $mult;
+			$bad_entry = 0;
+		} else {
+			print "invalid entry: '$amount'\n";
+		}
+	}
+
+	$date = &menu_get_date($name);
+
+	$bad_entry = 1;
+	while ($bad_entry) {
+		print "Please enter a transaction description:\n> ";
+		$comment = <STDIN>;
+		chomp $comment;
+
+		if ($comment) {
+			$bad_entry = 0;
+		} else {
+			print "No comment registered..\n";
+		}
+	}
+
+	my $out;
+	if ($date eq 'now') {
+		$out = &trans ($amount, $comment);
+	} else {
+		$out = &trans ($amount, $comment, $date);
+	}
+
+	if (&checkTransOutput($out)) {
+		print 'Transaction applied: ';
+
+		if ($date ne 'now') {
+			printf "Balance at date $date: %.2f\n", &balance($date);
+		} else {
+			printf "Balance after transaction: %.2f\n", &balance();
+		}
+	} # else: bad output is handled in above function
+}
+
+=head2 change_account ( )
+
+presents menu interface to change the active account
+
+=cut
+sub change_account {
+	my $account;
+	my $bad_entry = 1;
+	while ($bad_entry) {
+		my $active_account = $current_acct; # remember which account we had before
+		my @accounts = &get_accts();
+		my %valid_accounts = ();
+
+		print "Here are your accounts:\n";
+		foreach (@accounts) {
+			if (0 == &switch_acct($_)) {
+				my $name = &getName;
+				$name ||= '<No Name>';
+				print "$_: $name\n";
+				$valid_accounts{$_} = 1;
+			}
+		}
+
+		print "Which account would you like to use?\n> ";
+		$account = <STDIN>;
+		chomp $account;
+
+		if ($account =~ /^\d+$/ and exists $valid_accounts{$account}) {
+			$bad_entry = 0;
+		} else {
+			print "'$account' is not a valid account\n";
+		}
+		&switch_acct($active_account);
+	}
+
+	my $out = &switch_acct ($account + 0);
+
+	if (1 == $out) {
+		print STDERR "WARNING: Created account 0 (this shouldn't happen here..)\n";
+	} elsif (0 == $out) {
+		print "-- working with account $current_acct\n";
+	} elsif (-1 == $out) {
+		print STDERR "ERROR: account $current_acct doesn't exist.\nUse -r or --create\n";
+		&usage (1);
+	} else {
+		print STDERR "ERROR: &switch_acct undefined output. Check your data. Exitting..\n";
+		exit (1);
+	}
+}
+
+=head2 menu_accounts_summary ( )
+
+presents an accounts summary at a menu-driven time
+
+=cut
+sub menu_accounts_summary {
+	my $date = &menu_get_date('summary');
+
+	if ($date ne 'now') {
+		&printAccountSummary($date);
+	} else {
+		&printAccountSummary();
+	}
+}
+
+=head2 menu_get_date ( TYPE )
+
+presents menu interface for date input
+
+=cut
+sub menu_get_date {
+	my ($type) = @_;
+
+	my $bad_entry = 1;
+	my $date;
+	while ($bad_entry) {
+		print "Please enter $type time; type 'now' for now: ";
+		$date = <STDIN>;
+		chomp $date;
+		$date = lc $date;
+
+		if ($date eq 'now') {
+			$bad_entry = 0;
+		} elsif ($date =~ /^\d{1,12}$/ or $date =~ /^\+\d+/) {
+			$bad_entry = 0;
+			$date = &handleDate($date);
+		} else {
+			print "invalid entry: '$date'\n";
+		}
+	}
+
+	return $date;
+}
+
+=head2 menu_transfer ( )
+
+presents menu interface for performing a transfer
+
+=cut
+sub menu_transfer {
+	my %accounts = ();
+	foreach (&get_accts()) {
+		$accounts{$_} = 1;
+	}
+
+	my ($from, $to, $amount, $date, $comment);
+	my $bad_entry = 1;
+	while ($bad_entry) {
+		print "Please enter which account you'd like to transfer FROM:\n> ";
+		$from = <STDIN>;
+		chomp $from;
+
+		if ($accounts{$from}) {
+			$bad_entry = 0;
+		} else {
+			print "Account $from does not exist.\n";
+		}
+	}
+
+	$bad_entry = 1;
+	while ($bad_entry) {
+		print "Please enter which account you'd like to transfer TO:\n> ";
+		$to = <STDIN>;
+		chomp $to;
+
+		if ($accounts{$to}) {
+			if ($from != $to) {
+				$bad_entry = 0;
+			} else {
+				print "FROM '$from' equal to TO '$to'\n";
+			}
+		} else {
+			print "Account $to does not exist.\n";
+		}
+	}
+
+	$bad_entry = 1;
+	while ($bad_entry) {
+		print "Please enter transfer amount: ";
+		$amount = <STDIN>;
+		chomp $amount;
+
+		if ($amount =~ /\d/ and $amount =~ /^[\d.]*$/) {
+			$bad_entry = 0;
+		} else {
+			print "invalid entry: '$amount'\n";
+		}
+	}
+
+	$date = &menu_get_date('transfer');
+	$date = $date eq 'now' ? $now : $date;
+
+	$bad_entry = 1;
+	while ($bad_entry) {
+		print "Please enter a transfer description:\n> ";
+		$comment = <STDIN>;
+		chomp $comment;
+
+		if ($comment) {
+			$bad_entry = 0;
+		} else {
+			print "No comment registered..\n";
+		}
+	}
+
+	&transfer($date, $amount, $from, $to, $comment);
+}
+
+=head2 cli_version
+
+print the program version information
+
+=cut
+sub cli_version {
+	print "Brinance module version: " . &version() . "\n";
+	print "brinance CLI version: $VERSION\n";
+	print "\n";
+	print "Copyright (C) 2003-2007 Brian Kelly locoburger\@gmail.com\n";
+	print "brinance comes with ABSOLUTELY NO WARRANTY\n";
+	print "This is free software, and you are welcome to redistribute it\n";
+	print "under certain conditions. See LICENSE for details.\n";
+}
+
+=head2 menu_create_account
+
+presents menu interface for account creation
+
+=cut
+sub menu_create_account {
+	my %accounts;
+	foreach (&get_accts()) {
+		$accounts{$_} = 1;
+	}
+
+	my ($name, $account);
+	my $bad_entry = 1;
+	while ($bad_entry) {
+		print "Please enter an account number:\n> ";
+		$account = <STDIN>;
+		chomp $account;
+
+		if ($accounts{$account}) {
+			print "Account $account already exists.\n";
+		} else {
+			$bad_entry = 0;
+		}
+	}
+
+	print "Please enter an account name (or just hit enter for no name):\n> ";
+	$name = <STDIN>;
+	chomp $name;
+
+	my $out = &create ($name, $account);
+	if (1 == $out) {
+		# already exists
+		print "account $account already exists\n";
+		exit (0);
+	} elsif (0 == $out) {
+		# success
+		print "account $account created successfully\n";
+	} elsif (-1 == $out) {
+		# too few
+		print "too few arguments to create()\n";
+	} else {
+		print STDERR "ERROR: undefined output from getName(); Check your accounts file..\n";
+		print "Exitting..\n";
+		exit (1);
+	}
+}
