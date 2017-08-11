@@ -27,6 +27,7 @@ drwxr-xr-x  2 loco users  4096 May 26 15:35 lib/
 
    Anyway, so on to how to use this program. First, here's the help output,
 which I'll explain a bit more below:
+=========================================================
 
 [loco@erebor]% brinance --help
 Usage:
@@ -57,6 +58,10 @@ Usage:
      -v --version -> version
         $ brinance -v
 
+See README for more information.
+
+=========================================================
+
 OPTIONS:
    -b --balance
       Shows the balance on the current account. This can be specified many times
@@ -64,10 +69,10 @@ on the command line, as in:
 
 [loco@erebor]% brinance -b -1 -b
 Balance: 136.65
-Now working with account1
+Now working with account 1
 Balance: 777.31
 
-      which would give the balance on accounts 0 (the default) and 1.
+      ..which would give the current balances on accounts 0 (the default) and 1.
 
    -B --datedbalance
       Shows the balance at a specified time. The date can be indicated by either
@@ -75,6 +80,7 @@ giving a date stamp in the format %C%y%m%d%H%M (out to the minute, all bunched
 together with no punctuation, padded values so that there are a total of 12
 digits), or by how many full days in the future (only for the future) by putting
 a '+' in front of the number, as so..
+=========================================================
 
 [loco@erebor]% brinance -b -B +100 -1 -B 200307190000
 Balance: 136.65
@@ -82,16 +88,20 @@ account0 dated balance: 823.35
 Now working with account1
 account1 dated balance: 883.74
 
-      If the date specified in the long format is actually in the past, brinance
-will give you an error. No trickiness..
+=========================================================
+      When specifying a 12-digit date, you can specify a future date or a past
+date. The ability to check what your balance was some times aeons ago is
+supported.
 
    -c --credit
       Post a credit right now. You need to give an amount (no currency symbol,
-just '.' and '-' are allowed where appropriate.
+just '.' and '-' are allowed where appropriate).
+=========================================================
 
 [loco@erebor]% brinance -c 12.56 "A test credit"
 Balance after credit: 69.56
 
+=========================================================
       The transaction description ("A test credit" in this example) is only one
 argument, so if you've got spaces or special characters, you need to quote them
 however you do that with your shell.
@@ -99,12 +109,16 @@ however you do that with your shell.
    -C --datedcredit
       Post a credit at a specified date. Just like a normal credit, but you need
 to specify a date (in either format listed above) before the amount.
+=========================================================
 
 [loco@erebor]% brinance -C 200308080000 100 "birthday money"
 
+=========================================================
+
    -d --debit
       Just like a credit, but the amount is negated before it's recorded. Same
-syntax as '-c'.
+syntax as '-c'. Give it it a regular number value, and brinance will subtract it
+from the total balance for that account.
 
    -D --dateddebit
       Just what you'd think, a dated debit. Same syntax as '-C'.
@@ -120,9 +134,8 @@ Now working with account1
 Balance: 777.31
 
    -n --name
-      Get the name of the active account. The file format supports having the
-first commented line be a name string, and this option reads that and prints it
-out. If there isn't a name on the specified account, it'll say so.
+      Get the name of the active account. If there isn't a name on the specified
+account, it'll say so.
 
 [loco@erebor]% brinance -n -2 -n
 account0 name: checking account
