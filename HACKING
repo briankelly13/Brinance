@@ -7,11 +7,11 @@
 **File format
 
    The file format has changed pretty drastically in version 4. Now there is
-only one file for all normal past and future transactions in all accounts. Now
-all the information for the transaction is on one line, including the account to
+only one file for all normal past and future transactions in all accounts. All
+the information for the transaction is on one line, including the account to
 which it applies. Future and past transactions are in the same file, and are
-only differentiated by the code as being before the requested date or after (the
-same date is considered to be before).
+only differentiated by the code as being before the requested date or after (a
+concurrent date is counted towards a given date's balance).
    A line looks like so:
 
 <date> <account> <amount> <description>

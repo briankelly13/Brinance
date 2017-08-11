@@ -1,16 +1,3 @@
-* Future patterns in futures file; patterns like minder
-
 * Maybe add the ability to automagically calculate interest.. Be^(rt) and all..
 
 * GTK - use glade..
-
-* Add less specific dates in dated functions; '-B 1217' means at 12:17pm today,
-   '-B 04301835' means at 6:35pm of April 30th of this year, etc.. <DONE>
-	- always show date of dated transaction**
-
-* Add summary option - show all account balances and names
-	- optional account number range? some way to categorize accounts (100s are
-credit payoffs, 200s are vacation savers, 300s are christmas/borthday savers,
-etc..)
-	- need to change file handling -- read accounts into a data structure, only
-manipulate there, write new file if necessary

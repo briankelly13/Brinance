@@ -29,7 +29,7 @@ use strict;
 use lib "$ENV{HOME}/.brinance/lib";
 use Brinance;
 
-my $VERSION = '4.01';
+my $VERSION = '4.02';
 
 # We first pull apart all arguments and push them or their equivalent onto @arglist
 
@@ -206,36 +206,10 @@ while (@arglist) {
 			&usage (1);
 		}
 	} elsif ($_ eq '-a') {
-		my $ca = $current_acct;
-
-		print "--\n";
-		my @accts = &get_accts();
-		foreach my $acct (@accts) {
-			if (0 == &switch_acct($acct)) {
-				my $bal = sprintf '%.2f', &balance();
-				my $name = &getName;
-				$name = $name ? $name : '<No Name>';
-				print "Account $acct: $name\nBalance: $bal\n--\n";
-			}
-		}
-
-		&switch_acct($ca);
+		&printAccountSummary();
 	} elsif ($_ eq '-A') {
 		my $date = &handleDate(shift @arglist);
-		my $ca = $current_acct;
-
-		print "--\n";
-		my @accts = &get_accts();
-		foreach my $acct (@accts) {
-			if (0 == &switch_acct($acct)) {
-				my $bal = sprintf '%.2f', &balance($date);
-				my $name = &getName;
-				$name = $name ? $name : '<No Name>';
-				print "Account $acct: $name\nBalance at $date: $bal\n--\n";
-			}
-		}
-
-		&switch_acct($ca);
+		&printAccountSummary($date);
 	} else {
 		# unrecognized option/argument
 		print STDERR "ERROR: Unrecognized option: '$_'\n";
@@ -366,4 +340,45 @@ sub handleDate {
 	}
 
 	return $date;
+}
+
+=pod
+sub printAccountSummary: prints account summary
+=cut
+sub printAccountSummary {
+	my ($date) = @_;
+	my $dated;
+	if (defined $date) {
+		$dated = 1;
+	} else {
+		$dated = 0;
+		$date = $now;
+	}
+
+	my $ca = $current_acct;
+
+	print "--\n";
+	my @accts = &get_accts();
+	my $total = 0;
+	foreach my $acct (@accts) {
+		if (0 == &switch_acct($acct)) {
+			my $bal = &balance($date);
+			$total += $bal;
+			my $name = &getName;
+			$name = $name ? $name : '<No Name>';
+			if ($dated) {
+				print "Account $acct: $name\nBalance at $date: " . sprintf('%.2f', $bal) . "\n--\n";
+			} else {
+				print "Account $acct: $name\nBalance: " . sprintf('%.2f', $bal) . "\n--\n";
+			}
+		}
+	}
+
+	if ($dated) {
+		print "Total at $date: " . sprintf('%.2f', $total) . "\n--\n";
+	} else {
+		print "Total: " . sprintf('%.2f', $total) . "\n--\n";
+	}
+
+	&switch_acct($ca);
 }

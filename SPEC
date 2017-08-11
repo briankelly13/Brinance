@@ -6,6 +6,9 @@
 lifting for you. Herein, you'll find documentation for each subroutine and
 variable in the module. This is current as of version 3.93, found in brinance
 version 3.96. Some subroutines have been deprecated since version 3.x.
+   I've tried to maintain combatibility with the 3.x releases in the 4.x
+releases. I've only added one subroutine since then, &get_accts. Some
+subroutines have been deprecated since then, though.
 
 SUBROUTINES:
 
@@ -51,6 +54,9 @@ there is a NAME line in the accounts file. The subroutine returns as follows:
    1 => initial creation of account0, the default, success
    0 => account exists, success
   -1 => account doesn't exist, unsafe to use
+
+sub &Brinance::get_accts ():
+	Returns a list of numbers of all accounts
 
 **Internal; you shouldn't need to call this function
 sub &Brinance::_renow ():

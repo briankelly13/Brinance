@@ -29,7 +29,7 @@ package Brinance;
 require Exporter;
 
 our @ISA = ('Exporter');
-our $VERSION = '4.01';
+our $VERSION = '4.02';
 our @EXPORT = qw(	$current_acct $now $account_dir
 					&getName &balance &trans &get_accts
 					&version &create &switch_acct);
@@ -202,7 +202,7 @@ sub switch_acct {
 }
 
 =pod
-sub get_accts: return an array with numbers for all accounts
+sub get_accts: returns a list of numbers of all accounts
 =cut
 sub get_accts {
 	my @list = sort {$a <=> $b} (keys %accounts, keys %new_accounts);
@@ -400,7 +400,18 @@ sub _calc_future_patterns {
 		$current_date = &_add_date($current_date, 1);
 	}
 
-	return @return_dates;
+	my @final_dates;
+
+	foreach my $rd (@return_dates) {
+		if ($rd > $from_date and $rd <= $to_date) {
+			push @final_dates, $rd;
+		} else {
+			#FIXME: get an outside rnage error here..
+			#warn "$rd outside of range: $from_date to $to_date";
+		}
+	}
+
+	return @final_dates;
 }
 
 =pod
