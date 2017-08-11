@@ -1,1 +1,14 @@
+* Change the file format: <date><sp><account><sp><amount><sp><comment>
+	One trans per line
+	Would have to include a conversion script
+	New versions would have to detect and warn about old format
+	- Consolidate all accounts to one file by indicating account on each line
+	- Future and past all in one file
+	- Future file only contains recurring patterns now (like in minder)
+	- Deprecate dated methods, allow balance and trans to take a date or not
+	- CLI should be mostly unchanged (hence, API should remain pretty stable)
+
+* Future patterns in futures file; patterns like minder
+
 * Maybe add the ability to automagically calculate interest.. Be^(rt) and all..
+

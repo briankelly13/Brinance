@@ -1,46 +1,5 @@
-* 20040203 - Fixed an input check for dated transactions. Improperly formed
-dates were causing trouble.
-             Minor tweak in the module code to make sure we get a number
+* 20040624 - Patterns closer to working, but they still don't; doing final prep
+for a pre-release that has all the functionality of the old version, but none of
+the new stuff, except for the file format and the conversion tool
 
-* 20031205 - Fixed a serious bug with account numbers. If you put a leading zero
-on the account number ("brinance -00 -b") it could erase all transactions in the
-file. Very simple fix. As a side effect, leading 0's on account numbers are
-ignored. (e.g. account 007 is the same as account 7.)
-
-* 20031112 - Changed some subroutine names to be 'dated' instead of 'future'
-
-* 20031027 - Cleaned up some module API issues
-             Added module documentation in a SPEC file
-
-* 20031026 - Fixed some warnings about un-initialized variables
-
-* 20031021 - Got the module complete functionally. Final testing. The
-command-line interface has an improved option system. It now accepts option
-groupings (e.g. -b1b instead of -b -1 -b), but the old way still works
-fine.
-             Changed the version number scheme slightly to be more
-CPAN-friendly.
-
-* 20030917 - Beginnings of making it a module. Writing a new command-line
-interface to test out the module.
-
-* 20030913 - Trivial: cleaned up comments and added a couple notes of
-documentation. Final cleanups before tearing it apart again to modularize
-it.
-
-* 20030821 - Minor: removed dependence on Number::Format. More people should be
-able to run brinance now, as Number::Format doesn't seem to be a very common
-installation package on UNIX systems. Thanks to Gong Li!
-             Minor: Small documentation corrections and additions. Added an
-AUTHORS file.
-
-* 20030807 - Minor: using strict pragma now, and had to fix some things for
-that
-             Moderate: Fixed another bug in +<days> system if you added a number
-of days so that it would carry over into the month column. Now we don't add the
-days together until we've pulled fields in the date apart
-             Moderate: In fixing the last bug, uncovered another problem with
-the leap year system.. worked it out..
-             
-* 20030702 - Fixed date bug when specifying days in the future (+<days>
-notation) for futurebalance and futuretrans subs
+* 20040601 - Testing/finalizing new file format; pattern futures still don't work

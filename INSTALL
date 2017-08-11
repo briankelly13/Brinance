@@ -2,7 +2,7 @@
  How to install brinance
 =========================
 
-   Easy way: run 'make -s install'.
+   Easy way: run 'make install'.
 
    More..
    Unfortunately, with the modularization of brinance, it's gotten slightly
@@ -32,7 +32,7 @@ $ chmod 444 ~/.brinance/lib/Brinance.pm
 and conventions, though, so it doesn't fit well into any of their categories,
 but it will function if you just plop the file in that directory. Do it if you
 like.
-   Running 'make -s install' does all these things, in a default type way. The
+   Running 'make install' does all these things, in a default type way. The
 makefile uses ~/bin/ rather than ~/exe/ (that's just my thing), but otherwise
 it's the same. The point is, do it however you like.
 

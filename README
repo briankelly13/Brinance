@@ -14,16 +14,16 @@ C++, but wanted to try out Perl more, so when the time came to do a re-write
 how to do it in Perl pretty quickly, so off I went.
 
    Brinance keeps its data in some files in its own directory within your home
-directory, cleverly called '.brinance'. There will be two files for every
-account, a main file (account<number>) and a future file (future<number>), so
-that a long listing in ~/.brinance/ might look like:
+directory, cleverly called '.brinance'. The first file of note holds all normal
+past and future transactions for all accounts, cleverly called 'accounts'. There
+is also a 'futures' file that contains patterns for complex and repeated future
+transactions in a different format than the 'accounts' file.
 
 [loco@erebor]% ls -l ~/.brinance/
-total 24
--rw-------    1 loco     users        8850 Jun 26 16:21 account0
--rw-------    1 loco     users         319 Jun 20 00:05 account1
--rw-r--r--    1 loco     users          68 Jun 26 20:16 future0
--rw-r--r--    1 loco     users          64 Jun 26 16:21 future1
+total 37
+-rw-------  1 loco users 24917 May 26 11:46 accounts
+-rw-------  1 loco users    20 May 25 22:53 futures
+drwxr-xr-x  2 loco users  4096 May 26 15:35 lib/
 
    Anyway, so on to how to use this program. First, here's the help output,
 which I'll explain a bit more below:
@@ -38,13 +38,13 @@ Usage:
         $ brinance -b
      -B --datedbalance -> show dated balance
         $ brinance -B 200306271200
-     -c --credit -> credit
+     -c --credit -> apply credit
         $ brinance -c <amount> <comment>
-     -C --datedcredit -> dated credit
+     -C --datedcredit -> apply dated credit
         $ brinance -C 200306271200 <amount> <comment>
-     -d --debit -> debit
+     -d --debit -> apply debit
         $ brinance -d <amount> <comment>
-     -D --dateddebit -> dated debit
+     -D --dateddebit -> apply dated debit
         $ brinance -D 200306271200 <amount> <comment>
      -# -> (as in, a number) all following arguments refer to this account
         $ brinance -2 <action>
@@ -145,5 +145,5 @@ ERROR: account17 already exists
       Print all the options along with brief descriptions.
 
    -v --version
-      Print the version of brinance you are running.
+      Print the versions of the brinance CLI and module that you are running.
 

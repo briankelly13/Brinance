@@ -23,7 +23,7 @@ same. It's pretty much this, in bastardized BNF:
 <account name> = (free form text, but no new lines)
 <date string> = ([0-9]){12}
 <description> = (free form text, but no new lines)
-<transaction amount> = [-](0-9)*[.](0-9)*
+<transaction amount> = [-](0-9)*[.(0-9){1,2}]
 
    So, the file can start with a name identifier as the first line. Past that,
 there are particular transactions. This was designed to be easily modifiable
