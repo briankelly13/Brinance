@@ -29,7 +29,7 @@ use strict;
 use lib "$ENV{HOME}/.brinance/lib";
 use Brinance;
 
-my $VERSION = '4.02';
+my $VERSION = '4.03';
 
 # We first pull apart all arguments and push them or their equivalent onto @arglist
 
@@ -47,6 +47,8 @@ my %options = (
 	'create'		=> 'r',
 	'all'			=> 'a',
 	'datedall'		=> 'A',
+	'transfer'		=> 't',
+	'datedtransfer'	=> 'T',
 );
 my $validoptions = join '', (values %options);
 
@@ -136,7 +138,7 @@ while (@arglist) {
 		print "This is free software, and you are welcome to redistribute it\n";
 		print "under certain conditions. See LICENSE for details.\n";
 	} elsif ($_ eq '-h') {
-		&usage (0);
+		&usage (0, 1);
 	} elsif ($_ eq '-b') {
 		printf ("Balance: %.2f\n", &balance ());
 	} elsif ($_ eq '-c') {
@@ -210,6 +212,21 @@ while (@arglist) {
 	} elsif ($_ eq '-A') {
 		my $date = &handleDate(shift @arglist);
 		&printAccountSummary($date);
+	} elsif ($_ eq '-t') {
+		my $amount = shift @arglist;
+		my $from = shift @arglist;
+		my $to = shift @arglist;
+		my $comment = shift @arglist;
+
+		&transfer($now, $amount, $from, $to, $comment);
+	} elsif ($_ eq '-T') {
+		my $date = shift @arglist;
+		my $amount = shift @arglist;
+		my $from = shift @arglist;
+		my $to = shift @arglist;
+		my $comment = shift @arglist;
+
+		&transfer($date, $amount, $from, $to, $comment);
 	} else {
 		# unrecognized option/argument
 		print STDERR "ERROR: Unrecognized option: '$_'\n";
@@ -223,41 +240,50 @@ exit (0);
 sub usage: shows how to invoke the command-line program
 =cut
 sub usage {
+	my ($exit, $verbose) = @_;
 	my $exec = 'brinance';
 
+	if ($verbose) {
 	print "Usage:
-	\$ $exec <args>\n
-  Accepted args:
-     -b --balance -> show current balance
-        \$ $exec -b
-     -B --datedbalance -> show dated balance
-        \$ $exec -B 200306271200
-     -c --credit -> apply credit
-        \$ $exec -c <amount> <comment>
-     -C --datedcredit -> apply dated credit
-        \$ $exec -C 200306271200 <amount> <comment>
-     -d --debit -> apply debit
-        \$ $exec -d <amount> <comment>
-     -D --dateddebit -> apply dated debit
-        \$ $exec -D 200306271200 <amount> <comment>
-     -# -> (as in, a number) all following arguments refer to this account
-        \$ $exec -2 <more arguments>
-     -n --name -> get the name of the active account
-        \$ $exec -4 -n
-     -a --all -> show details of all accounts
-        \$ $exec -a
-     -A --datedall -> show details of all accounts at given date
-        \$ $exec -A 200306271200
-     -r --create -> create a new account
-        \$ $exec -r <account number> <account description>
-     -h --help -> help
-        \$ $exec -h
-     -v --version -> version
-        \$ $exec -v\n";
+    \$ $exec <args>\n
+ Accepted args:
+  -b --balance -> show current balance
+    $exec -b
+  -B --datedbalance -> show dated balance
+    $exec -B 200306271200
+  -c --credit -> apply credit
+    $exec -c <amount> <comment>
+  -C --datedcredit -> apply dated credit
+    $exec -C 200306271200 <amount> <comment>
+  -d --debit -> apply debit
+    $exec -d <amount> <comment>
+  -D --dateddebit -> apply dated debit
+    $exec -D 200306271200 <amount> <comment>
+  -t --transfer -> transfer an amount from one account to another
+    $exec -t <amount> <account number from> <account number to> <comment>
+  -T --datedtransfer -> dated transfer
+    $exec -T 200306271200 <amount> <account number from> <account number to> <comment>
+  -# -> (as in, a number) all following arguments refer to this account
+    $exec -2 <more arguments>
+  -n --name -> get the name of the active account
+    $exec -4 -n
+  -a --all -> show details of all accounts
+    $exec -a
+  -A --datedall -> show details of all accounts at given date
+    $exec -A 200306271200
+  -r --create -> create a new account
+    $exec -r <account number> <account description>
+  -h --help -> help
+    $exec -h
+  -v --version -> version
+    $exec -v\n";
 
-	print "\nSee README for more information.\n";
+		print "\nSee README for more information.\n";
+	} else {
+		print "For more information, type:\n\t$exec --help\n";
+	}
 
-	exit ($_[0]);
+	exit $exit;
 }
 
 sub CLItrans {
@@ -273,7 +299,7 @@ sub CLItrans {
 	if ($amount and $comment) {
 		my $out;
 		if (defined $date) {
-			if ($date =~ /^(\d{2,12})$/ or $date =~ /^\+(\d+)$/ ) {
+			if ($date =~ /^\d{2,12}$/ or $date =~ /^\+\d+$/ ) {
 				$date_mod = &handleDate($date);
 			} else {
 				print STDERR "ERROR: date not formatted correctly\n";
@@ -285,7 +311,7 @@ sub CLItrans {
 			$out = &trans ($amount, $comment);
 		}
 
-		if (0 == $out) {
+		if (&checkTransOutput($out)) {
 			print 'Dated transaction applied: ';
 
 			if (defined $date_mod && $date_mod > $now) {
@@ -293,20 +319,7 @@ sub CLItrans {
 			} else {
 				printf "Balance after transaction: %.2f\n", &balance();
 			}
-		} elsif (-1 == $out) {
-			print STDERR "ERROR: too few arguments to trans()\n";
-			&usage (1);
-		} elsif (-2 == $out) {
-			print STDERR "ERROR: zero-value transaction\n";
-			&usage (1);
-		} elsif (-3 == $out) {
-			print STDERR "ERROR: invalid date format specified\n";
-			&usage (1);
-		} else {
-			print STDERR "ERROR: undefined output from trans(); Check your accounts file..\n";
-			print STDERR "Exitting..\n";
-			exit (1);
-		}
+		} # else: bad output is handled in above function
 	} else {
 		print STDERR "ERROR: too few arguments for transaction\n";
 		&usage (1);
@@ -321,7 +334,7 @@ sub handleDate {
 
 	my $date;
 	if ($in =~ /^\+(\d+)$/) {
-		my (undef,$min,$hour,$mday,$mon,$year,undef,undef,undef) = localtime(time+($1*86400));
+		my ($min, $hour, $mday, $mon, $year) = (localtime(time+($1*86400)))[1, 2, 3, 4, 5];
 
 		$year += 1900;
 		$mon += 1;
@@ -381,4 +394,62 @@ sub printAccountSummary {
 	}
 
 	&switch_acct($ca);
+}
+
+=pod
+sub transfer: transfers amount from one account to another in one action
+=cut
+sub transfer {
+	my ($date, $amount, $from, $to, $comment) = @_;
+	my $ca = $current_acct;
+	$date = &handleDate($date);
+
+	# check exitence of both accounts before anything else
+	if (0 != &switch_acct($to + 0)) {
+		print STDERR "ERROR: account #$to doesn't exist\n";
+		&usage(1);
+	}
+	if (0 != &switch_acct($from + 0)) {
+		print STDERR "ERROR: account #$from doesn't exist\n";
+		&usage(1);
+	}
+
+	#apply to from
+	my $out = &trans (-1 * $amount, "transfer to account #$to: $comment", $date);
+	if (&checkTransOutput($out)) {
+		printf "Transaction applied to account #$from: Balance at date $date: %.2f\n", &balance($date);
+	} # else: bad output is handled in above function
+
+	#apply to to
+	&switch_acct($to + 0);
+	$out = &trans ($amount, "transfer from account #$from: $comment", $date);
+	if (&checkTransOutput($out)) {
+		printf "Transaction applied to account #$to: Balance at date $date: %.2f\n", &balance($date);
+	} # else: bad output is handled in above function
+
+	#switch back
+	&switch_acct($ca);
+}
+
+sub checkTransOutput {
+	my ($out) = @_;
+
+	if (0 == $out) {
+		return 1;
+	} elsif (-1 == $out) {
+		print STDERR "ERROR: too few arguments to trans()\n";
+		&usage (1);
+	} elsif (-2 == $out) {
+		print STDERR "ERROR: zero-value transaction\n";
+		&usage (1);
+	} elsif (-3 == $out) {
+		print STDERR "ERROR: invalid date format specified\n";
+		&usage (1);
+	} else {
+		print STDERR "ERROR: undefined output from trans(); Check your accounts file..\n";
+		print STDERR "Exitting..\n";
+		exit (1);
+	}
+
+	return 0; # shouldn't get here
 }

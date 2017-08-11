@@ -29,7 +29,7 @@ package Brinance;
 require Exporter;
 
 our @ISA = ('Exporter');
-our $VERSION = '4.02';
+our $VERSION = '4.03';
 our @EXPORT = qw(	$current_acct $now $account_dir
 					&getName &balance &trans &get_accts
 					&version &create &switch_acct);
@@ -113,7 +113,7 @@ sub trans: applies a transaction to the current account, either credit or debit
   usage: &Brinance::trans ( $amount, $comment, <$date> )
   return values:
    0 - success
-  -1 - too few arguments (needs two)
+  -1 - too few arguments (needs at least two)
   -2 - zero value transaction, which could mean a non-number was specified as the transaction amount
   -3 - invalid date specified
 =cut
@@ -275,7 +275,18 @@ sub _calc_future_patterns {
 		return ();
 	}
 
-	my ($year,$month,$day,$day_logic,$dayow,$hour,$min,$origin,$from_date,$to_date) = @_;
+	my (
+		$year,
+		$month,
+		$day,
+		$day_logic,
+		$dayow,
+		$hour,
+		$min,
+		$origin,
+		$from_date,
+		$to_date,
+	) = @_;
 
 	$hour = (length $hour) eq 1 ? '0' . $hour : $hour;
 	$min = (length $min) eq 1 ? '0' . $min : $min;
@@ -400,13 +411,12 @@ sub _calc_future_patterns {
 		$current_date = &_add_date($current_date, 1);
 	}
 
-	my @final_dates;
-
+	my @final_dates = ();
 	foreach my $rd (@return_dates) {
 		if ($rd > $from_date and $rd <= $to_date) {
 			push @final_dates, $rd;
 		} else {
-			#FIXME: get an outside rnage error here..
+			#FIXME: get an outside range error here..
 			#warn "$rd outside of range: $from_date to $to_date";
 		}
 	}

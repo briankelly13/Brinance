@@ -3,21 +3,21 @@
 =================================================
 
    Brinance is a commandline financial planning and tracking program, hoping to
-be a functional replacement for something overly complicated for such tasks like
-GnuCash for those who prefer the commandline. It is written in simple Perl and
-has a few advanced features, such as scheduling transactions in the future and
-having as many accounts as one might care to have.
-   I started this program so that I wouldn't have to be tied to a GUI interface
-to do my finances. I originally wrote it in simple C++, but wanted to try out
-Perl more, so when the time came to do a re-write (add future transactions and
-multiple accounts, mostly) I was able to think of how to do it in Perl pretty
-quickly, so off I went.
+be a functional replacement for something overly complicated like GnuCash for
+those who prefer the commandline. It is written in simple Perl and has a few
+advanced features, such as scheduling transactions in the future and having as
+many accounts as one might care to have.
+   No disrespect to GnuCash, but I started this program so that I wouldn't have
+to be tied to a GUI interface to do my finances. I originally wrote it in simple
+C++, but wanted to try out Perl more, so when the time came to do a re-write
+(add future transactions and multiple accounts, mostly) I was able to think of
+how to do it in Perl pretty quickly, so off I went.
 
    Brinance keeps its data in some files in its own directory within your home
 directory, cleverly called '.brinance'. The first file of note holds all normal
-past and future transactions for all accounts, equally cleverly called
-'accounts'. There is also a 'futures' file that contains patterns for complex
-and repeated future transactions in a different format than the 'accounts' file.
+past and future transactions for all accounts, cleverly called 'accounts'. There
+is also a 'futures' file that contains patterns for complex and repeated future
+transactions in a different format than the 'accounts' file.
 
 [loco@erebor]% ls -l ~/.brinance/
 total 37
@@ -31,35 +31,39 @@ which I'll explain a bit more below:
 
 [loco@erebor]% brinance --help
 Usage:
-        $ brinance <args>
+    $ brinance <args>
 
-  Accepted args:
-     -b --balance -> show current balance
-        $ brinance -b
-     -B --datedbalance -> show dated balance
-        $ brinance -B 200306271200
-     -c --credit -> apply credit
-        $ brinance -c <amount> <comment>
-     -C --datedcredit -> apply dated credit
-        $ brinance -C 200306271200 <amount> <comment>
-     -d --debit -> apply debit
-        $ brinance -d <amount> <comment>
-     -D --dateddebit -> apply dated debit
-        $ brinance -D 200306271200 <amount> <comment>
-     -# -> (as in, a number) all following arguments refer to this account
-        $ brinance -2 <more arguments>
-     -n --name -> get the name of the active account
-        $ brinance -4 -n
-     -a --all -> show details of all accounts
-        $ brinance -a
-     -A --datedall -> show details of all accounts at given date
-        $ brinance -A 200306271200
-     -r --create -> create a new account
-        $ brinance -r <account number> <account description>
-     -h --help -> help
-        $ brinance -h
-     -v --version -> version
-        $ brinance -v
+ Accepted args:
+  -b --balance -> show current balance
+    brinance -b
+  -B --datedbalance -> show dated balance
+    brinance -B 200306271200
+  -c --credit -> apply credit
+    brinance -c <amount> <comment>
+  -C --datedcredit -> apply dated credit
+    brinance -C 200306271200 <amount> <comment>
+  -d --debit -> apply debit
+    brinance -d <amount> <comment>
+  -D --dateddebit -> apply dated debit
+    brinance -D 200306271200 <amount> <comment>
+  -t --transfer -> transfer an amount from one account to another
+    brinance -t <amount> <account number from> <account number to> <comment>
+  -T --datedtransfer -> dated transfer
+    brinance -T 200306271200 <amount> <account number from> <account number to> <comment>
+  -# -> (as in, a number) all following arguments refer to this account
+    brinance -2 <more arguments>
+  -n --name -> get the name of the active account
+    brinance -4 -n
+  -a --all -> show details of all accounts
+    brinance -a
+  -A --datedall -> show details of all accounts at given date
+    brinance -A 200306271200
+  -r --create -> create a new account
+    brinance -r <account number> <account description>
+  -h --help -> help
+    brinance -h
+  -v --version -> version
+    brinance -v
 
 See README for more information.
 
@@ -88,7 +92,7 @@ a '+' in front of the number, as so..
 [loco@erebor]% brinance -b -B +100 -1 -B 200307190000
 Balance: 136.65
 account0 dated balance: 823.35
-Now working with account1
+-- working with account 1
 account1 dated balance: 883.74
 
 =========================================================
@@ -126,6 +130,24 @@ from the total balance for that account.
    -D --dateddebit
       Just what you'd think, a dated debit. Same syntax as '-C'.
 
+   -t --transfer
+      Transfer an amount from one account to another. This will produce two
+corresponding transactions in the accounts files, both applied immediately.
+=========================================================
+
+[loco@erebor]% brinance -t 12 1 2 "increase buffer"
+
+=========================================================
+
+   -T --datedtransfer
+      Just like a transfer, except that you specify the time in the same manner
+as other dated commands.
+=========================================================
+
+[loco@erebor]% brinance -T 200308080000 12 1 2 "increase buffer"
+
+=========================================================
+
    -{#}
       Switch the active account to this numbered account. That account must
 already exist, or brinance exits. You use a literal number though. You'll use
@@ -133,7 +155,7 @@ this option to switch to that account to work with it. You can specify this
 option more than once to work with multiple accounts in one command line.
 
 [loco@erebor]% brinance -1 -b
-Now working with account1
+-- working with account 1
 Balance: 777.31
 
    -n --name
@@ -143,14 +165,13 @@ account, it'll say so.
 
 [loco@erebor]% brinance -n -2 -n
 account0 name: checking account
-Now working with account2
+-- working with account 2
 No name for account2
 
 =========================================================
 
    -a --all
-      Print the name and current balance of each account, along with a grand
-total.
+      Print the name and current balance of each account
 =========================================================
 
 [loco@erebor]% brinance -a
@@ -163,8 +184,6 @@ Balance: 27000.00
 --
 Account 2: <No Name>
 Balance: 2.00
---
-Total: 36452.00
 --
 
 =========================================================
@@ -184,16 +203,14 @@ Balance at 200603251323: 28000.00
 Account 2: <No Name>
 Balance at 200603251323: 2.00
 --
-Total: 37802.00
---
 
 =========================================================
 
    -r --create
       Create a new account. You will have to manually do this for every account
-you want besides the initial one (account 0). This creates an account with the
-number you specify, if those files don't already exist. The first argument to -r
-is an account description. The second argument is the requested number.
+you want besides the initial. This creates an account with the number you
+specify, if those files don't already exist. The first argument to -r is an
+account description. The second argument is the requested number.
 
 [loco@erebor]% brinance -r "My new account" 17
 account17 created successfully
@@ -214,13 +231,13 @@ ERROR: account17 already exists
 
    One of the major new features of Brinance 4.x is the ability to express
 recurring transactions. Older versions allowed you to post individual
-transactions in the future, but this version allows you to express, for
-instance, a transaction that posts every Friday from now indefinitely (like a
-paycheck). To let Brinance know about a recurring transaction you want, you have
-to create a pattern. This pattern lets Brinance know the schedule of the
-recurring transaction you want. Because the pattern is very different than what
-goes into the Brinance accounts file, there's a whole file just for these
-patterns, the futures file.
+transactions in the future, but this allows you to express, for instance, a
+transaction that posts every Friday from now indefinitely (like a paycheck).
+   To let Brinance know about a recurring transaction you want, you have to
+create a pattern. This pattern allows Brinance to figure out the schedule of
+the recurring transaction you want. Because the pattern is very different
+than what goes into the Brinance accounts file, there's a whole file just for
+these patterns, the futures file.
    If you've been running a 4.x version of Brinance (or a pre-release), the
 futures file already exists in your Brinance directory. Just run the program
 once, and the file will be created for you.
@@ -233,25 +250,20 @@ Here's the layout of these patterns:
 
 <YEAR> - 4 digit year
 <MONTH> - numeric month (12 is December) or the first 3 letters of the month's
-    name (e.g. Jun)
+	name (e.g. Jun)
 <DATE> - day of the month
 <DAY-LOGIC> - determines whether we apply a transaction when the current date
-    matches the date AND weekday, or the date OR weekday; defaults to OR, so
-    you can leave it off
+	matches the date AND weekday, or the date OR weekday; defaults to OR, so
+	you can leave it off
 <WEEKDAY> - day of the week, 1-7 (for Monday - Sunday), or first three letters
-    of the name of the day (e.g. Wed)
+	of the name of the day (e.g. Wed)
 <HOUR> - The hour when to apply the transaction if the pattern matches today
-    (See *Note below)
 <MINUTE> - The minute of the hour when to apply the transaction if the pattern
-    matches today (See *Note below)
+	matches today
 :<ORIGIN>: - used in some more complex patterns to specify when to first apply
 <ACCOUNT> - which account this transaction affects
 <AMOUNT> - how much
 <DESCRIPTION> - a transaction description
-
-*Note - Notice that HOUR and MINUTE are not variable in the sense that the other
-fields are. Patterns are not based upon the HOUR and MINUTE; these fields just
-indicate what time of the calculated day to apply the transaction.
 
    <YEAR>, <MONTH>, <DATE>, and <WEEKDAY> can all simply be a '*' by itself,
 which indicates that the pattern matches any value in this field. The
@@ -309,7 +321,7 @@ different from right now. So, if the 12-digit date for right now is
 you only need to type:
 =========================================================
 
-[loco@erebor]% brinance -D 1100 1.09 "bottle of cherry coke"
+[loco@erebor]% brinance -D 1100 1.09 "bottle of coke"
 
 =========================================================
 
@@ -321,7 +333,6 @@ you only need to type:
 =========================================================
 
    Notice that there is a leading zero on that date. If that was left off,
-Brinance would assume you meant '191348', because the date now (in this example)
-is '200603151330', and it's just combining what you inputted with the current
-date.
+Brinance would assume you meant '191348', because the date now is
+'200603151330', and it's just combining what you inputted with the current date.
 
