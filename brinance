@@ -20,8 +20,8 @@
 # brinance - simple UNIX command-line interface to Brinance Perl personal
 #            finance planner tracker
 #
-#		tabstop = 3		(These two lines should line up)
-#     tabstop = 3    (These two lines should line up)
+#		tabstop = 4		(These two lines should line up)
+#       tabstop = 4     (These two lines should line up)
 
 use warnings;
 use strict;
@@ -29,86 +29,76 @@ use strict;
 use lib "$ENV{HOME}/.brinance/lib";
 use Brinance;
 
-my $VERSION = '4.00';
-my @arglist;
+my $VERSION = '4.01';
 
 # We first pull apart all arguments and push them or their equivalent onto @arglist
-foreach ( @ARGV ) {
-	if ( /^--./ ) { # GNU style option
-		if	 ( $_ eq '--help' ) {
-			push (@arglist, '-h');
+
+my @arglist;
+my %options = (
+	'help'			=> 'h',
+	'version'		=> 'v',
+	'credit'		=> 'c',
+	'debit'			=> 'd',
+	'balance'		=> 'b',
+	'datedcredit'	=> 'C',
+	'dateddebit'	=> 'D',
+	'datedbalance'	=> 'B',
+	'name'			=> 'n',
+	'create'		=> 'r',
+	'all'			=> 'a',
+	'datedall'		=> 'A',
+);
+my $validoptions = join '', (values %options);
+
+foreach (@ARGV) {
+	if (/^--./) { # GNU style option
+		my $gnu_option = substr $_, 2;
+
+		if (defined $options{$gnu_option}) {
+			push @arglist, '-' . $options{$gnu_option};
+		} else {
+			print STDERR "ERROR: Unrecognized GNU style option: '$gnu_option'\n";
+			&usage(1);
 		}
-		elsif ( $_ eq '--version' ) {
-			push (@arglist, '-v');
-		}
-		elsif ( $_ eq '--credit' ) {
-			push (@arglist, '-c');
-		}
-		elsif ( $_ eq '--debit' ) {
-			push (@arglist, '-d');
-		}
-		elsif ( $_ eq '--balance' ) {
-			push (@arglist, '-b');
-		}
-		elsif ( $_ eq '--datedcredit' ) {
-			push (@arglist, '-C');
-		}
-		elsif ( $_ eq '--dateddebit' ) {
-			push (@arglist, '-D');
-		}
-		elsif ( $_ eq '--datedbalance' ) {
-			push (@arglist, '-B');
-		}
-		elsif ( $_ eq '--name' ) {
-			push (@arglist, '-n');
-		}
-		elsif ( $_ eq '--create' ) {
-			push (@arglist, '-r');
-		}
-		elsif ( $_ eq '--all') {
-			push (@arglist, '-a');
-		}
-		elsif ( $_ eq '--datedall') {
-			push (@arglist, '-A');
-		}
-		else {
-			print STDERR "ERROR: Unrecognized GNU style option: '$_'\n";
-			&usage (1);
-		}
-	}
-	elsif ( /^-./ ) { # regular group of options
-		# break the arg down into individual list elements
-		my $argplace = 1;
-		my @donelist = ();
-		my $num = '';
-		while ($argplace < (length $_)) {
-			my $curr_char = substr ($_, $argplace++, 1);
-			if ($curr_char =~ /\d/) {
-				$num .= $curr_char;
-			} else {
-				if ($num ne '') {
-					push ( @donelist, $num );
-					$num = '';
+	} elsif (/^-./) {
+		my @opts = split //, (substr $_, 1);
+
+		my $num = undef;
+		foreach my $opt (@opts) {
+			if ($opt =~ /[$validoptions]/o) {
+				if (defined $num) {
+					push @arglist, "-$num";
+					$num = undef;
 				}
-				push ( @donelist, $curr_char );
+				push @arglist, "-$opt";
+			} elsif ($opt =~ /\d/) {
+				if (defined $num) {
+					$num .= $opt;
+				} else {
+					$num = $opt;
+				}
+			} else {
+				print STDERR "ERROR: Unrecognized option: '-$opt'\n";
+				&usage(1);
 			}
 		}
 
-		if ($num ne '') {
-			push ( @donelist, $num );
+		if (defined $num) {
+			push @arglist, "-$num";
 		}
-
-		foreach (@donelist) {
-			push ( @arglist, "-$_" );
-		}
-	} else { # not starting with -
-		push ( @arglist, $_ );
+	} else {
+		push @arglist, $_;
 	}
+}
+
+unless (@arglist) {
+	print STDERR "Need arguments.\nUse --help for more help\n";
+	exit (1);
 }
 
 # check if we need to convert old account# files to an accounts file
 #  if so, suggest they run the included conversion script (don't want conv code in here..)
-if ( !(-e "$Brinance::account_dir/accounts") and -e "$Brinance::account_dir/account0") {
+if ( !(-e "$account_dir/accounts") and -e "$account_dir/account0") {
 	print "It looks like you've been running an older version of brinance.\n";
 	print "You will need to convert your account files to the new format.\n";
 
@@ -117,146 +107,140 @@ if ( !(-e "$Brinance::account_dir/accounts") and -e "$Brinance::account_dir/acco
 	exit (1);
 }
 
-unless (@arglist) {
-	print STDERR "Need arguments.\nUse --help for more help\n";
-	exit (1);
-}
+&switch_acct (0); # sets us up to use account 0
 
-&Brinance::switch_acct (0); # sets us up to use account 0
-
-# helper vars for processing args
-my $skipnext = 0;
-my $where = 0;
-my $credit = 0; #Is the transaction a credit? Debit otherwise..
-
-# Process the args
-foreach (@arglist) {
-	if ( $skipnext ) { $skipnext--; $where++; next; }
+# Process @arglist
+while (@arglist) {
+	local $_ = shift @arglist;
 
 	if (/^-(\d+)$/) {
-		my $out = &Brinance::switch_acct ($1 + 0);
+		my $out = &switch_acct ($1 + 0);
 
-		if ( 1 == $out ) {
+		if (1 == $out) {
 			print STDERR "WARNING: Created account 0 (this shouldn't happen here..)\n";
-		} elsif ( 0 == $out ) {
-			print "-- working with account $Brinance::current_acct\n";
-		} elsif ( -1 == $out ) {
-			print STDERR "ERROR: account $Brinance::current_acct doesn't exist.\nUse -r or --create\n";
+		} elsif (0 == $out) {
+			print "-- working with account $current_acct\n";
+		} elsif (-1 == $out) {
+			print STDERR "ERROR: account $current_acct doesn't exist.\nUse -r or --create\n";
 			&usage (1);
 		} else {
-			print STDERR "ERROR: &Brinance::switch_acct undefined output. Check your data. Exitting..\n";
+			print STDERR "ERROR: &switch_acct undefined output. Check your data. Exitting..\n";
 			exit (1);
 		}
-	} elsif ( $_ eq '-v' ) {
-		print "Brinance module version: " . &Brinance::version() . "\n";
+	} elsif ($_ eq '-v') {
+		print "Brinance module version: " . &version() . "\n";
 		print "brinance CLI version: $VERSION\n";
 		print "\n";
 		print "Copyright (C) 2003-2006 Brian Kelly locoburger\@gmail.com\n";
 		print "brinance comes with ABSOLUTELY NO WARRANTY\n";
 		print "This is free software, and you are welcome to redistribute it\n";
 		print "under certain conditions. See LICENSE for details.\n";
-	} elsif ( $_ eq '-h' ) {
+	} elsif ($_ eq '-h') {
 		&usage (0);
-	} elsif ( $_ eq '-b' ) {
-		print sprintf ("Balance: %.2f\n", &Brinance::balance ());
-	} elsif ( $_ eq '-c' ) {
-		$credit = 1;
-		&CLItrans ();
-	} elsif ( $_ eq '-d' ) {
-		$credit = 0;
-		&CLItrans ();
-	} elsif ( $_ eq '-C' ) {
-		$credit = 1;
-		&CLIdatedtrans ();
-	} elsif ( $_ eq '-D' ) {
-		$credit = 0;
-		&CLIdatedtrans ();
-	} elsif ( $_ eq '-B' ) {
-		if ( $arglist[$where+1] ) {
-			my $date;
-			if ($arglist[$where+1] =~ /^\d{2,12}$/ or $arglist[$where+1] =~ /^\+(\d+)$/) {
-				$date = &handleDate ($arglist[$where+1]);
+	} elsif ($_ eq '-b') {
+		printf ("Balance: %.2f\n", &balance ());
+	} elsif ($_ eq '-c') {
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 1);
+	} elsif ($_ eq '-d') {
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 0);
+	} elsif ($_ eq '-C') {
+		my $date = shift @arglist;
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 1, $date);
+	} elsif ($_ eq '-D') {
+		my $date = shift @arglist;
+		my $amount = shift @arglist;
+		my $comment = shift @arglist;
+		&CLItrans ($amount, $comment, 0, $date);
+	} elsif ($_ eq '-B') {
+		my $date = shift @arglist;
+
+		if ($date) {
+			if ($date =~ /^\d{2,12}$/ or $date =~ /^\+(\d+)$/) {
+				$date = &handleDate($date);
 			} else {
 				print STDERR "ERROR: date not in 12-digit or +<days> format\n";
 				&usage (1);
 			}
 
-			print sprintf ("account $Brinance::current_acct balance at $date: %.2f\n", &Brinance::balance ( $date ));
+			printf "account $current_acct balance at $date: %.2f\n", &balance($date);
 		} else {
 			print STDERR "ERROR: dated balance requires an argument\n";
 			&usage (1);
 		}
-		$skipnext = 1;
-	} elsif ( $_ eq '-n' ) {
-		if (my $out = &Brinance::getName ()) {
-			print "account $Brinance::current_acct name: $out\n";
+	} elsif ($_ eq '-n') {
+		if (my $name = &getName()) {
+			print "account $current_acct name: $name\n";
+		} else {
+			print "No name for account $current_acct\n";
 		}
-		else {
-			print "No name for account $Brinance::current_acct\n";
-		}
-	}
-	elsif ( $_ eq '-r' ) {
-		if ( $arglist[$where+2] && length($arglist[$where+1]) ) {
-			my $out = &Brinance::create ( $arglist[$where+2], $arglist[$where+1] );
+	} elsif ($_ eq '-r') {
+		my $account = shift @arglist;
+		my $name = shift @arglist;
 
-			if ( 1 == $out ) {
+		if ($name && defined $account) {
+			my $out = &create ($name, $account);
+
+			if (1 == $out) {
 				# already exists
-				print "account $arglist[$where+1] already exists\n";
+				print "account $account already exists\n";
 				exit (0);
-			} elsif ( 0 == $out ) {
+			} elsif (0 == $out) {
 				# success
-				print "account $arglist[$where+1] created successfully\n";
-			} elsif ( -1 == $out ) {
+				print "account $account created successfully\n";
+			} elsif (-1 == $out) {
 				# too few
 				print "too few arguments to create()\n";
 			} else {
-				print STDERR "ERROR: undefined output from Brinance::getName(); Check your accounts file..\n";
+				print STDERR "ERROR: undefined output from getName(); Check your accounts file..\n";
 				print "Exitting..\n";
 				exit (1);
 			}
-			$skipnext = 2;
 		} else {
 			print STDERR "ERROR: too few arguments to create\n";
 			&usage (1);
 		}
 	} elsif ($_ eq '-a') {
-		my $ca = $Brinance::current_acct;
+		my $ca = $current_acct;
 
 		print "--\n";
-		my @accts = &Brinance::get_accts();
+		my @accts = &get_accts();
 		foreach my $acct (@accts) {
-			if (0 == &Brinance::switch_acct($acct)) {
-				my $bal = sprintf ('%.2f', &Brinance::balance ());
-				my $name = &Brinance::getName;
+			if (0 == &switch_acct($acct)) {
+				my $bal = sprintf '%.2f', &balance();
+				my $name = &getName;
 				$name = $name ? $name : '<No Name>';
 				print "Account $acct: $name\nBalance: $bal\n--\n";
 			}
 		}
 
-		&Brinance::switch_acct($ca);
+		&switch_acct($ca);
 	} elsif ($_ eq '-A') {
-		my $date = &handleDate($arglist[$where+1]);
-		my $ca = $Brinance::current_acct;
+		my $date = &handleDate(shift @arglist);
+		my $ca = $current_acct;
 
 		print "--\n";
-		my @accts = &Brinance::get_accts();
+		my @accts = &get_accts();
 		foreach my $acct (@accts) {
-			if (0 == &Brinance::switch_acct($acct)) {
-				my $bal = sprintf ('%.2f', &Brinance::balance ($date));
-				my $name = &Brinance::getName;
+			if (0 == &switch_acct($acct)) {
+				my $bal = sprintf '%.2f', &balance($date);
+				my $name = &getName;
 				$name = $name ? $name : '<No Name>';
 				print "Account $acct: $name\nBalance at $date: $bal\n--\n";
 			}
 		}
 
-		&Brinance::switch_acct($ca);
-		$skipnext = 1;
+		&switch_acct($ca);
 	} else {
 		# unrecognized option/argument
 		print STDERR "ERROR: Unrecognized option: '$_'\n";
 		&usage (1);
 	}
-	$where++;
 }
 
 exit (0);
@@ -264,7 +248,7 @@ exit (0);
 =pod
 sub usage: shows how to invoke the command-line program
 =cut
-sub usage () {
+sub usage {
 	my $exec = 'brinance';
 
 	print "Usage:
@@ -303,85 +287,54 @@ sub usage () {
 }
 
 sub CLItrans {
-	if ( 0 == $arglist[$where+1] ) { $arglist[$where+1] .= '.00'; }
+	my ($amount, $comment, $credit, $date) = @_;
 
-	if ( $arglist[$where+2] && $arglist[$where+1] ) {  
-		my $comment = $arglist[$where+2];
-		my $amount = (($credit * 2) - 1) * $arglist[$where+1];
+	if (defined $amount && $amount == 0) {
+		$amount .= '.00';
+	}
 
-		my $out = &Brinance::trans ( $amount, $comment );
+	$amount = $credit ? $amount : -1 * $amount;
 
-		if ( 0 == $out ) {
-			my $bal = sprintf ('%.2f', &Brinance::balance ());
-
-			if ( $credit ) {
-				print "Balance after credit: $bal\n";
+	my $date_mod;
+	if ($amount and $comment) {
+		my $out;
+		if (defined $date) {
+			if ($date =~ /^(\d{2,12})$/ or $date =~ /^\+(\d+)$/ ) {
+				$date_mod = &handleDate($date);
 			} else {
-				print "Balance after debit: $bal\n";
+				print STDERR "ERROR: date not formatted correctly\n";
+				&usage(1);
 			}
 
-			$skipnext = 2;
-		} elsif ( -1 == $out ) {
-			print STDERR "ERROR: too few arguments to Brinance::trans()\n";
-			&usage (1);
-		} elsif ( -2 == $out ) {
-			print STDERR "ERROR: zero-value transaction\n";
-			&usage (1);
+			$out = &trans ($amount, $comment, $date_mod);
 		} else {
-			print STDERR "ERROR: undefined output from Brinance::trans(); Check your accounts file..\n";
-			print "Exitting..\n";
-			exit (0);
-		}
-	}  else {  
-		print STDERR "ERROR: too few arguments for a transaction\n";
-		&usage (1);
-	}  
-}
-
-sub CLIdatedtrans {
-	if ( $arglist[$where+1] && $arglist[$where+1] == 0) { $arglist[$where+1] .= '.00'; }
-
-	if ( $arglist[$where+3] && $arglist[$where+2] && $arglist[$where+1] ) {
-		my $comment = $arglist[$where+3];
-		my $date_mod;
-
-		if ( $arglist[$where+1] =~ /^(\d{2,12})$/ or $arglist[$where+1] =~ /^\+(\d+)$/ ) {
-			$date_mod = &handleDate ($arglist[$where+1]);
-		} else { # date is not formatted properly
-			print STDERR "ERROR: date not formatted correctly\n";
-			&usage (1);
+			$out = &trans ($amount, $comment);
 		}
 
-		my $amount = (($credit * 2) - 1) * $arglist[$where+2];
-
-		my $out = &Brinance::trans ( $amount, $comment, $date_mod );
-
-		if ( 0 == $out ) {
+		if (0 == $out) {
 			print 'Dated transaction applied: ';
 
-			if ( $date_mod <= $Brinance::now ) {
-				print sprintf ("Current balance: %.2f\n", &Brinance::balance ());
+			if (defined $date_mod && $date_mod > $now) {
+				printf "Balance at date $date_mod: %.2f\n", &balance($date_mod);
 			} else {
-				print sprintf ("Balance at date $date_mod: %.2f\n", &Brinance::balance($date_mod));
+				printf "Balance after transaction: %.2f\n", &balance();
 			}
-
-			$skipnext = 3;
-		} elsif ( -1 == $out ) {
-			print STDERR "ERROR: too few arguments to Brinance::trans()\n";
+		} elsif (-1 == $out) {
+			print STDERR "ERROR: too few arguments to trans()\n";
 			&usage (1);
-		} elsif ( -2 == $out ) {
+		} elsif (-2 == $out) {
 			print STDERR "ERROR: zero-value transaction\n";
 			&usage (1);
-		} elsif ( -3 == $out ) {
+		} elsif (-3 == $out) {
 			print STDERR "ERROR: invalid date format specified\n";
 			&usage (1);
 		} else {
-			print STDERR "ERROR: undefined output from Brinance::trans(); Check your accounts file..\n";
+			print STDERR "ERROR: undefined output from trans(); Check your accounts file..\n";
 			print STDERR "Exitting..\n";
 			exit (1);
 		}
 	} else {
-		print STDERR "ERROR: too few arguments for a dated transaction\n";
+		print STDERR "ERROR: too few arguments for transaction\n";
 		&usage (1);
 	}
 }
@@ -398,15 +351,15 @@ sub handleDate {
 
 		$year += 1900;
 		$mon += 1;
-		if ($mon  < 10) { $mon  = "0" . $mon }
-		if ($mday < 10) { $mday = "0" . $mday }
-		if ($hour < 10) { $hour = "0" . $hour }
-		if ($min  < 10) { $min  = "0" . $min }
+		if ($mon  < 10) { $mon  = '0' . $mon }
+		if ($mday < 10) { $mday = '0' . $mday }
+		if ($hour < 10) { $hour = '0' . $hour }
+		if ($min  < 10) { $min  = '0' . $min }
 		$date = $year . $mon . $mday . $hour . $min;
 	} elsif ($in =~ /^\d{12}$/) {
 		$date = $in;
 	} elsif ($in =~ /^\d{1,11}$/) {
-		$date = (substr ($Brinance::now, 0, 12 - (length $in))) . $in;
+		$date = (substr ($now, 0, 12 - (length $in))) . $in;
 	} else {
 		print STDERR "ERROR: invalid date format: $in\n";
 		&usage (1);

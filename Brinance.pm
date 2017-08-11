@@ -19,8 +19,8 @@
 #
 # brinance - Perl UNIX personal finance planner/tracker
 #
-#     tabstop = 3    (These two lines should line up)
-#		tabstop = 3		(These two lines should line up)
+#       tabstop = 4     (These two lines should line up)
+#		tabstop = 4		(These two lines should line up)
 
 use strict;
 use warnings;
@@ -29,10 +29,10 @@ package Brinance;
 require Exporter;
 
 our @ISA = ('Exporter');
-our $VERSION = '4.00';
-our @EXPORT_OK = qw(	$current_acct $now $account_dir
-							&getName &balance &trans &get_accts
-							&version &create &switch_acct);
+our $VERSION = '4.01';
+our @EXPORT = qw(	$current_acct $now $account_dir
+					&getName &balance &trans &get_accts
+					&version &create &switch_acct);
 
 our $current_acct = 0;
 our $now;
@@ -44,8 +44,12 @@ my @transactions = (); # AoH representing all transactions
 my @new_transactions = ();
 my @futures = (); # AoH patterns and comments found in the futures file
 
+INIT {
+	&_setup;
+}
+
 END {
-&_writechanges;
+	&_writechanges;
 }
 
 =pod
@@ -56,7 +60,7 @@ sub version {
 }
 
 =pod
-sub getName: returns the name of the current account, or undefined if there is no valid name
+sub getName: returns the name of the current account, or undef if there is no valid name
 =cut
 sub getName {
 	if (defined $accounts{$current_acct}) {
@@ -72,8 +76,6 @@ sub getName {
 sub balance: returns the balance of the current account
 =cut
 sub balance {
-	&_setup unless (keys %accounts or keys %new_accounts);
-
 	my ($date_req) = @_;
 	unless (defined $date_req and ($date_req =~ /^\d{12}$/)) {
 		&_renow;
@@ -93,8 +95,8 @@ sub balance {
 			my @dates = ();
 			if (($fut->{'type'} eq 'pattern') and ($fut->{'account'} == $current_acct)) {
 				@dates = &_calc_future_patterns ($fut->{'year'}, $fut->{'month'}, $fut->{'day'},
-					$fut->{'day_logic'}, $fut->{'dayow'}, $fut->{'hour'}, $fut->{'min'}, $fut->{'origin'},
-					$now, $date_req);
+				$fut->{'day_logic'}, $fut->{'dayow'}, $fut->{'hour'}, $fut->{'min'}, $fut->{'origin'},
+				$now, $date_req);
 
 				foreach my $date (@dates) {
 					$total += $fut->{'amount'};
@@ -116,20 +118,18 @@ sub trans: applies a transaction to the current account, either credit or debit
   -3 - invalid date specified
 =cut
 sub trans {
-	&_setup unless (keys %accounts or keys %new_accounts);
-
-	if ( 2 > @_ ) {
+	if (2 > scalar @_) {
 		return -1; # too few arguments
 	}
 
 	my ($amount, $comment, $req_date) = @_;
 
 	$amount += 0; # to make sure its numeric
-	if ( 0 == $amount ) { # zero value transacrion
+	if (0 == $amount) { # zero value transacrion
 		return -2;
 	}
 
-	if ( $req_date ) { # was a date specified?
+	if ($req_date) { # was a date specified?
 		unless ($req_date =~ /^\d{12}$/) { # invalid date format
 			return -3;
 		}
@@ -138,12 +138,13 @@ sub trans {
 		$req_date = $now;
 	}
 
-	push @new_transactions,	{	'date' => $req_date,
-										'account' => $current_acct,
-										'amount' => $amount,
-										'comment' => $comment,
-										'type' => 'transaction',
-									};
+	push @new_transactions,	{
+		'date' => $req_date,
+		'account' => $current_acct,
+		'amount' => $amount,
+		'comment' => $comment,
+		'type' => 'transaction',
+	};
 
 	return 0;
 }
@@ -157,7 +158,7 @@ sub create: create a new account
   -1 - too few arguments, needs 2
 =cut
 sub create {
-	if ( 2 > @_ ) {
+	if (2 > scalar @_) {
 		return -1;
 	}
 
@@ -183,9 +184,8 @@ sub switch_acct: safety for switching account, give a failure if the account isn
   -1 - failed, account doesn't exist
 =cut
 sub switch_acct {
-	$current_acct = defined $_[0] ? $_[0] + 0 : 0;
-
-	&_setup unless (keys %accounts or keys %new_accounts);
+	($current_acct) = @_;
+	$current_acct += 0;
 
 	if (defined $accounts{$current_acct} or defined $new_accounts{$current_acct}) {
 		&_update_futures;
@@ -205,8 +205,6 @@ sub switch_acct {
 sub get_accts: return an array with numbers for all accounts
 =cut
 sub get_accts {
-	&_setup unless (keys %accounts or keys %new_accounts);
-
 	my @list = sort {$a <=> $b} (keys %accounts, keys %new_accounts);
 	return @list;
 }
@@ -216,7 +214,7 @@ INTERNAL
 sub _renow: re-initialize $now, used before any time-dependant functions
 =cut
 sub _renow {
-	my (undef, $min, $hour, $mday, $mon, $year, undef, undef, undef) = localtime(time);
+	my ($min, $hour, $mday, $mon, $year) = (localtime(time))[1,2,3,4,5];
 
 	$year += 1900;
 	$mon += 1;
@@ -236,22 +234,34 @@ sub _update_futures: called before working with an account to apply future trans
 sub _update_futures {
 	foreach my $fut (@futures) {
 		my @dates = ();
-		if (($fut->{'type'} eq 'pattern') and ($fut->{'account'} == $current_acct)) {
+		if ($fut->{'type'} eq 'pattern' and $fut->{'account'} == $current_acct) {
 			&_renow;
-			@dates = &_calc_future_patterns ($fut->{'year'}, $fut->{'month'}, $fut->{'day'},
-				$fut->{'day_logic'}, $fut->{'dayow'}, $fut->{'hour'}, $fut->{'min'}, $fut->{'origin'},
-				$accounts{$current_acct}->{'updated'}, $now);
-				$accounts{$current_acct}->{'updated'} = $now;
+			@dates = &_calc_future_patterns (
+				$fut->{'year'},
+				$fut->{'month'},
+				$fut->{'day'},
+				$fut->{'day_logic'},
+				$fut->{'dayow'},
+				$fut->{'hour'},
+				$fut->{'min'},
+				$fut->{'origin'},
+				$accounts{$current_acct}->{'updated'},
+				$now,
+			);
 
 			foreach my $date (@dates) {
-				push @new_transactions,	{	'date' => $date,
-													'amount' => $fut->{'amount'},
-													'account' => $fut->{'account'},
-													'comment' => $fut->{'comment'},
-													'type' => 'transaction' };
+				push @new_transactions,	{
+					'date' => $date,
+					'amount' => $fut->{'amount'},
+					'account' => $fut->{'account'},
+					'comment' => $fut->{'comment'},
+					'type' => 'transaction',
+				};
 			}
 		}
 	}
+
+	$accounts{$current_acct}->{'updated'} = $now;
 
 	return;
 }
@@ -261,11 +271,14 @@ INTERNAL
 sub _calc_future_patterns: processes patterns lines in futures file between last_update and now
 =cut
 sub _calc_future_patterns {
-	unless (10 == @_) {
+	unless (10 == scalar @_) {
 		return ();
 	}
 
 	my ($year,$month,$day,$day_logic,$dayow,$hour,$min,$origin,$from_date,$to_date) = @_;
+
+	$hour = (length $hour) eq 1 ? '0' . $hour : $hour;
+	$min = (length $min) eq 1 ? '0' . $min : $min;
 
 	$from_date =~ /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)$/;
 	my ($from_year, $from_month, $from_day, $from_hour, $from_min) = ($1, $2, $3, $4, $5);
@@ -322,6 +335,7 @@ sub _calc_future_patterns {
 		if (%months) {
 			$curr = 0 unless $months{$month_req};
 		}
+
 		if ($day_logic eq '|') {
 			if (%days) {
 				if (%dayows) {
@@ -333,17 +347,16 @@ sub _calc_future_patterns {
 			} elsif (%dayows) {
 				$curr = 0 unless $dayows{$dayow_req};
 			}
-		}
-		elsif ($day_logic eq '&') {
+		} elsif ($day_logic eq '&') {
 			if (%days) {
 				$curr = 0 unless $days{$day_req};
 			}
 			if (%dayows) {
 				$curr = 0 unless $dayows{$dayow_req};
 			}
-		}
-		else {
-			return ();
+		} else {
+			# Invalid day logic
+			return;
 		}
 
 		foreach (keys %dayows) {
@@ -368,7 +381,14 @@ sub _calc_future_patterns {
 		}
 
 		if ($curr) {
-			if (($to_year . $to_month . $to_day) eq ($year_req . $month_req . $day_req)) {
+			if ($to_year . $to_month . $to_day eq $year_req . $month_req . $day_req) {
+				#FIXME: reset hour and min to zero if from is before req day
+				# hmm.. not right.. seems to keep finding it in future balances
+				if ($from_year . $from_month . $from_day < $year_req . $month_req . $day_req) {
+					$from_hour = '00';
+					$from_min = '00';
+				}
+
 				if (($from_hour . $from_min) <= ($hour_req . $min_req) and
 						($to_hour . $to_min) >  ($hour_req . $min_req)) {
 					push (@return_dates, ($year_req . $month_req . $day_req . $hour_req . $min_req));
@@ -457,16 +477,18 @@ sub _setup {
 				$accounts{$num}->{'name'} = $name;
 			} elsif (/^(\d{12})\s+(\d+)\s+([-\d\.]+)\s+(.*)$/) {
 				my ($date, $account, $amount, $comment) = ($1, $2, $3, $4);
-				push @transactions,	{	'date' => $date,
-												'account' => $account,
-												'amount' => $amount,
-												'comment' => $comment,
-												'type' => 'transaction',
-											};
+				push @transactions, {
+					'date' => $date,
+					'account' => $account,
+					'amount' => $amount,
+					'comment' => $comment,
+					'type' => 'transaction',
+				};
 			} else {
-				push @transactions,	{	'line' => $_,
-												'type' => 'comment',
-											};
+				push @transactions, {
+					'line' => $_,
+					'type' => 'comment',
+				};
 			}
 		}
 		close ACCOUNT;
@@ -480,24 +502,39 @@ sub _setup {
 				} else {
 					die 'ERROR: account mismatch between accounts and futures for account ' . $1;
 				}
-			} elsif (/^(\S+)\s+(\S+)\s+(\S+)\s+([|&]?)\s*(\S+)\s+(\S+)\s+(\S+)\s+:(\d*):\s+(\d+)\s+(-?[\.\d]+)\s+(.+)$/) {
-				# Isn't that hideous?
-				push @futures,	{	'line'		=> $_,
-										'type'		=> 'pattern',
-										'year'		=> $1,
-										'month'		=> $2,
-										'day'			=> $3,
-										'day_logic'	=> $4 ? $4 : '|',
-										'dayow'		=> $5,
-										'hour'		=> $6 < 10 ? '0'.$6 : $6,
-										'min'			=> $7 < 10 ? '0'.$7 : $7,
-										'origin'		=> $8,
-										'account'	=> $9,
-										'amount'		=> $10,
-										'comment'	=> $11 };
+			} elsif (/^
+					(\S+)\s+	# year
+					(\S+)\s+	# month
+					(\S+)\s+	# day
+					([|&]?)\s*	# day logic, or not, followed by space or not
+					(\S+)\s+	# day of the week (dayow)
+					(\S+)\s+	# hour
+					(\S+)\s+	# minute
+					:(\d*):\s+	# origin surrounded by colons
+					(\d+)\s+	# account number
+					(-?[\.\d]+)	# transaction amount
+					\s+(.+)		# transaction comment
+					$/x) {
+				push @futures, {
+					'line'		=> $_,
+					'type'		=> 'pattern',
+					'year'		=> $1,
+					'month'		=> $2,
+					'day'		=> $3,
+					'day_logic'	=> $4 ? $4 : '|',
+					'dayow'		=> $5,
+					'hour'		=> $6 < 10 ? '0'.$6 : $6,
+					'min'		=> $7 < 10 ? '0'.$7 : $7,
+					'origin'	=> $8,
+					'account'	=> $9,
+					'amount'	=> $10,
+					'comment'	=> $11,
+				};
 			} else {
-				push @futures, {	'line' => $_,
-										'type' => 'comment'};
+				push @futures, {
+					'line'		=> $_,
+					'type'		=> 'comment',
+				};
 			}
 		}
 		close FUTURE;
@@ -606,53 +643,47 @@ sub _add_date {
 	$month *= 1;
 
 	# months are crazy go nuts..
-	# I couln't find a an easy-enough to use package to do this, so I wrote it myself, no doubt introducing numerous bugs..
-	my %months = ( 1 => 31,  2 => 28,  3 => 31,
-	               4 => 30,  5 => 31,  6 => 30,
-   	            7 => 31,  8 => 31,  9 => 30,
-      	        10 => 31, 11 => 30, 12 => 31);
+	# I couldn't find a an easy-enough to use package to do this, so I wrote it myself, no doubt introducing numerous bugs..
+	my %months = (
+		1 => 31, 2 => 28, 3 => 31,
+		4 => 30, 5 => 31, 6 => 30,
+		7 => 31, 8 => 31, 9 => 30,
+		10 => 31, 11 => 30, 12 => 31,
+	);
 
 	my $leap = 0;
 
 	while ($day > $months{$month}) {
 		if ($month == 2 && (($year % 4) == 0)) {
-			if (29 == $day)
-			{
+			if (29 == $day) {
 				$leap = 1;
 				$day = 28; # so we don't get stuck in the loop, we'll set it back to 29 later
-			}
-			else
-			{
+			} else {
 				$day -= 29;
 				$month++;
 			}
-		}
-		else {
+		} else {
 			$day -= $months{$month};
 			$month++;
 		}
 
-		while ($month > 12)
-		{
+		while ($month > 12) {
 			$month -= 12;
 			$year++;
 		}
 	}
 
-	if ($leap)
-	{
+	if ($leap) {
 		$day = 29;
 		$leap = 0;
 	}
 
-	while ($month > 12)
-	{
+	while ($month > 12) {
 		$month -= 12;
 		$year++;
 	}
 
-	if ($year > 9999)
-	{
+	if ($year > 9999) {
 		print STDERR "WARNING: Calculated year is huge: $year\n";
 		$year = 9999;
 	}
@@ -660,10 +691,11 @@ sub _add_date {
 	$month *= 1; $day *= 1;
 
 	if ($month < 10) {
-		$month = "0" . $month;
+		$month = '0' . $month;
 	}
+
 	if ($day < 10) {
-		$day = "0" . $day;
+		$day = '0' . $day;
 	}
 
 	return $year . $month . $day;
@@ -689,7 +721,8 @@ sub datedtrans: applies a transaction at specified future time
   -2 - zero-value transaction
 =cut
 sub datedtrans {
-	if (defined $_[0] and defined $_[1] and defined $_[2]) { # trans takes the date last, datedtrans took it first, so we need to switch things around
+	# trans takes the date last, datedtrans took it first, so we need to switch things around
+	if (defined $_[0] and defined $_[1] and defined $_[2]) {
 		return &trans ($_[1], $_[2], $_[0]);
 	} else {
 		return -1;
