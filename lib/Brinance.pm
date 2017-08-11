@@ -2,7 +2,7 @@
 #
 # This software released under the terms of the GNU General Public License 2.0
 #
-# Copyright (C) 2003-2007 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
+# Copyright (C) 2003-2008 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ Brinance - lightweight financial planner/tracker
 
 =head1 VERSION
 
-Version 4.46
+Version 4.50
 
 =head1 SYNOPSIS
 
@@ -55,10 +55,8 @@ subroutines have been deprecated since then, though.
 
 =cut
 
-#FIXME: blowing away futures lines occasionally.. :(
-
 our @ISA = ('Exporter');
-our $VERSION = '4.46';
+our $VERSION = '4.50';
 our @EXPORT = qw(
 	$current_acct $now $account_dir
 	&getName &balance &trans &get_accts
@@ -102,10 +100,12 @@ Returns the name of the current account, or undef if there is no valid name.
 =cut
 sub getName {
 	if (defined $accounts{$current_acct}) {
-		return $accounts{$current_acct}->{'name'} ne '' ? $accounts{$current_acct}->{'name'} : undef;
-	} elsif (defined $new_accounts{$current_acct}) {
-		return $new_accounts{$current_acct}->{'name'} ne '' ? $new_accounts{$current_acct}->{'name'} : undef;
-	} else {
+		return $accounts{$current_acct}{'name'} ne '' ? $accounts{$current_acct}{'name'} : undef;
+	}
+	elsif (defined $new_accounts{$current_acct}) {
+		return $new_accounts{$current_acct}{'name'} ne '' ? $new_accounts{$current_acct}{'name'} : undef;
+	}
+	else {
 		return undef;
 	}
 }
@@ -193,7 +193,8 @@ sub trans {
 		unless ($req_date =~ /^\d{12}$/) { # invalid date format
 			return -3;
 		}
-	} else {
+	}
+	else {
 		&_renow;
 		$req_date = $now;
 	}
@@ -228,10 +229,11 @@ sub create {
 
 	if (defined $accounts{$acct_num} or defined $new_accounts{$acct_num}) {
 		return 1;
-	} else {
+	}
+	else {
 		&_renow;
-		$new_accounts{$acct_num}->{'name'} = $acct_name;
-		$new_accounts{$acct_num}->{'updated'} = $now;
+		$new_accounts{$acct_num}{'name'} = $acct_name;
+		$new_accounts{$acct_num}{'updated'} = $now;
 	}
 
 	return 0;
@@ -254,13 +256,15 @@ sub switch_acct {
 	if (defined $accounts{$current_acct} or defined $new_accounts{$current_acct}) {
 		&_update_futures;
 		return 0;
-	} elsif ($current_acct == 0) { # create account 0 named "default"
+	}
+	elsif ($current_acct == 0) { # create account 0 named "default"
 		&_renow;
-		$new_accounts{0}->{'name'} = 'default';
-		$new_accounts{0}->{'updated'} = $now;
+		$new_accounts{0}{'name'} = 'default';
+		$new_accounts{0}{'updated'} = $now;
 		&_update_futures;
 		return 1;
-	} else { # account not found
+	}
+	else { # account not found
 		return -1;
 	}
 }
@@ -320,7 +324,7 @@ sub _update_futures {
 				$fut->{'hour'},
 				$fut->{'min'},
 				$fut->{'origin'},
-				$accounts{$current_acct}->{'updated'},
+				$accounts{$current_acct}{'updated'},
 				$now,
 			);
 
@@ -337,10 +341,12 @@ sub _update_futures {
 	}
 
 	if (exists $accounts{$current_acct}) {
-		$accounts{$current_acct}->{'updated'} = $now;
-	} elsif (exists $new_accounts{$current_acct}) {
-		$new_accounts{$current_acct}->{'updated'} = $now;
-	} else {
+		$accounts{$current_acct}{'updated'} = $now;
+	}
+	elsif (exists $new_accounts{$current_acct}) {
+		$new_accounts{$current_acct}{'updated'} = $now;
+	}
+	else {
 		#FIXME: error
 	}
 
@@ -439,17 +445,20 @@ sub _calc_future_patterns {
 				else {
 					$curr = 0 unless $days{$day_req};
 				}
-			} elsif (%dayows) {
+			}
+			elsif (%dayows) {
 				$curr = 0 unless $dayows{$dayow_req};
 			}
-		} elsif ($day_logic eq '&') {
+		}
+		elsif ($day_logic eq '&') {
 			if (%days) {
 				$curr = 0 unless $days{$day_req};
 			}
 			if (%dayows) {
 				$curr = 0 unless $dayows{$dayow_req};
 			}
-		} else {
+		}
+		else {
 			# Invalid day logic
 			return;
 		}
@@ -484,11 +493,12 @@ sub _calc_future_patterns {
 					$from_min = '00';
 				}
 
-				if (($from_hour . $from_min) <= ($hour_req . $min_req) and
-						($to_hour . $to_min) >  ($hour_req . $min_req)) {
+				if (($from_hour . $from_min) <= ($hour_req . $min_req)
+				and ($to_hour . $to_min) > ($hour_req . $min_req)) {
 					push (@return_dates, ($year_req . $month_req . $day_req . $hour_req . $min_req));
 				}
-			} else {
+			}
+			else {
 				push (@return_dates, ($year_req . $month_req . $day_req . $hour_req . $min_req));
 			}
 		}
@@ -499,7 +509,8 @@ sub _calc_future_patterns {
 	foreach my $rd (@return_dates) {
 		if ($rd > $from_date and $rd <= $to_date) {
 			push @final_dates, $rd;
-		} else {
+		}
+		else {
 			#FIXME: get an outside range error here..
 			#warn "$rd outside of range: $from_date to $to_date";
 		}
@@ -552,13 +563,15 @@ sub _gen_list {
 		foreach (@holder) {
 			unless (/-/) {
 				$items{$_} = 1;
-			} else {
+			}
+			else {
 				my ($start, $end) = split (/-/);
 				if ($start < $end) {
 					while ($start <= $end) {
 						$items{$start++} = 1;
 					}
-				} else {
+				}
+				else {
 					die "ERROR: item \$start:$start not before \$end:$end";
 				}
 			}
@@ -580,19 +593,22 @@ sub _setup {
 	unless (open (ACCOUNT, "$account_dir/accounts")) {
 		&_initial_setup;
 		return;
-	} else {
+	}
+	else {
 		while (<ACCOUNT>) {
 			chomp;
 			if (/^ACCOUNT (\d+):?(.*)$/) {
 				my ($num, $name) = ($1, $2);
 				if (defined $name) {
 					$name =~ s/^\s+//;
-				} else {
+				}
+				else {
 					$name = '';
 				}
 				$accounts{$num} = {};
-				$accounts{$num}->{'name'} = $name;
-			} elsif (/^(\d{12})\s+(\d+)\s+([-\d\.]+)\s+(.*)$/) {
+				$accounts{$num}{'name'} = $name;
+			}
+			elsif (/^(\d{12})\s+(\d+)\s+([-\d\.]+)\s+(.*)$/) {
 				my ($date, $account, $amount, $comment) = ($1, $2, $3, $4);
 				push @transactions, {
 					'date' => $date,
@@ -601,7 +617,8 @@ sub _setup {
 					'comment' => $comment,
 					'type' => 'transaction',
 				};
-			} else {
+			}
+			else {
 				push @transactions, {
 					'line' => $_,
 					'type' => 'comment',
@@ -610,16 +627,38 @@ sub _setup {
 		}
 		close ACCOUNT;
 
+		my $has_last_updates = 0;
+		if (-e "$account_dir/last_updates") {
+			$has_last_updates = 1;
+
+			open (LAST_UPDATES, "$account_dir/last_updates") or return;
+			while (<LAST_UPDATES>) {
+				chomp;
+				if (/^ACCOUNT (\d+): (\d{12})$/) {
+					if (defined $accounts{$1}) {
+						$accounts{$1}{'updated'} = $2;
+					}
+					else {
+						die 'ERROR: account mismatch between accounts and futures for account ' . $1;
+					}
+				}
+			}
+			close LAST_UPDATES;
+		}
+
 		open (FUTURE, "$account_dir/futures") or return;
 		while (<FUTURE>) {
 			chomp;
-			if (/^ACCOUNT (\d+): (\d{12})$/) {
+			if (not $has_last_updates and /^ACCOUNT (\d+): (\d{12})$/) {
+				# ignore if there is a last_updates file
 				if (defined $accounts{$1}) {
-					$accounts{$1}->{'updated'} = $2;
-				} else {
+					$accounts{$1}{'updated'} = $2;
+				}
+				else {
 					die 'ERROR: account mismatch between accounts and futures for account ' . $1;
 				}
-			} elsif (/^
+			}
+			elsif (/^
 					(\S+)\s+	# year
 					(\S+)\s+	# month
 					(\S+)\s+	# day
@@ -647,7 +686,8 @@ sub _setup {
 					'amount'	=> $10,
 					'comment'	=> $11,
 				};
-			} else {
+			}
+			else {
 				push @futures, {
 					'line'		=> $_,
 					'type'		=> 'comment',
@@ -672,15 +712,18 @@ sub _writechanges {
 
 		foreach (sort {$a <=> $b} (keys %accounts, keys %new_accounts)) {
 			if (defined $accounts{$_}) {
-				if (exists $accounts{$_}->{'name'} and $accounts{$_}->{'name'} ne '') {
-					print ACCOUNT "ACCOUNT $_: " . $accounts{$_}->{'name'} . "\n";
-				} else {
+				if (exists $accounts{$_}{'name'} and $accounts{$_}{'name'} ne '') {
+					print ACCOUNT "ACCOUNT $_: " . $accounts{$_}{'name'} . "\n";
+				}
+				else {
 					print ACCOUNT "ACCOUNT $_\n";
 				}
-			} elsif (defined $new_accounts{$_}) {
-				if ($new_accounts{$_}->{'name'} ne '') {
-					print ACCOUNT "ACCOUNT $_: " . $new_accounts{$_}->{'name'} . "\n";
-				} else {
+			}
+			elsif (defined $new_accounts{$_}) {
+				if ($new_accounts{$_}{'name'} ne '') {
+					print ACCOUNT "ACCOUNT $_: " . $new_accounts{$_}{'name'} . "\n";
+				}
+				else {
 					print ACCOUNT "ACCOUNT $_\n";
 				}
 			}
@@ -689,20 +732,23 @@ sub _writechanges {
 		foreach (@transactions, @new_transactions) {
 			if ($_->{'type'} eq 'transaction') {
 				print ACCOUNT $_->{'date'} ."\t". $_->{'account'} ."\t". $_->{'amount'} ."\t". $_->{'comment'} ."\n";
-			} elsif ($_->{'type'} eq 'comment') {
+			}
+			elsif ($_->{'type'} eq 'comment') {
 				print ACCOUNT $_->{'line'} ."\n";
 			}
 		}
 		close ACCOUNT;
 
-	} elsif (@new_transactions) {
+	}
+	elsif (@new_transactions) {
 		open (ACCOUNT, ">>$account_dir/accounts") or
 			die "ERROR: Cannot open file $account_dir/accounts for appending: $!";
 
 		foreach (@new_transactions) {
 			if ($_->{'type'} eq 'transaction') {
 				print ACCOUNT $_->{'date'} ."\t". $_->{'account'} ."\t". $_->{'amount'} ."\t". $_->{'comment'} ."\n";
-			} elsif ($_->{'type'} eq 'comment') {
+			}
+			elsif ($_->{'type'} eq 'comment') {
 				print ACCOUNT $_->{'line'} ."\n";
 			}
 		}
@@ -710,29 +756,23 @@ sub _writechanges {
 		close ACCOUNT;
 	}
 
-	# We will always have some futures updates, because we indicate the last time each account was accessed
-	open (FUTURE, ">$account_dir/futures") or
-		die "ERROR: Cannot open file $account_dir/futures for writing: $!";
+	open (LAST_UPDATES, ">$account_dir/last_updates") or
+		die "ERROR: Cannot open file $account_dir/last_updates for writing: $!";
 
 	&_renow;
 
 	foreach (sort {$a <=> $b} (keys %accounts, keys %new_accounts)) {
 		if (defined $accounts{$_}) {
-			$accounts{$_}->{'updated'} = $now unless $accounts{$_}->{'updated'};
-			print FUTURE "ACCOUNT $_: " . $accounts{$_}->{'updated'} . "\n";
-		} elsif (defined $new_accounts{$_}) {
-			$accounts{$_}->{'updated'} = $now unless $accounts{$_}->{'updated'};
-			print FUTURE "ACCOUNT $_: " . $new_accounts{$_}->{'updated'} . "\n";
+			$accounts{$_}{'updated'} = $now unless $accounts{$_}{'updated'};
+			print LAST_UPDATES "ACCOUNT $_: " . $accounts{$_}{'updated'} . "\n";
+		}
+		elsif (defined $new_accounts{$_}) {
+			$accounts{$_}{'updated'} = $now unless $accounts{$_}{'updated'};
+			print LAST_UPDATES "ACCOUNT $_: " . $new_accounts{$_}{'updated'} . "\n";
 		}
 	}
 
-unless (@futures) {
-	print "\@futures is empty..\n";
-}
-	foreach (@futures) {
-		print FUTURE $_->{'line'} . "\n";
-	}
-	close FUTURE;
+	close LAST_UPDATES;
 }
 
 =head2 _initial_setup ( )
@@ -751,8 +791,8 @@ sub _initial_setup {
 		}
 	}
 
-	$new_accounts{0}->{'name'} = 'default';
-	$new_accounts{0}->{'updated'} = $now;
+	$new_accounts{0}{'name'} = 'default';
+	$new_accounts{0}{'updated'} = $now;
 
 	return;
 }
@@ -771,7 +811,8 @@ sub _add_date {
 		my ($year, $month, $day) = unpack '@0A4 @4A2 @6A2', $date;
 		my ($y, $m, $d) = Date::Calc::Add_Delta_Days($year, $month, $day, $added);
 		return sprintf '%04d%02d%02d', $y, $m, $d;
-	} else {
+	}
+	else {
 		print STDERR "invalid date format passed to _add_date\n";
 		use Data::Dumper;
 		print STDERR Dumper \@_;
@@ -808,7 +849,8 @@ sub datedtrans {
 	# trans takes the date last, datedtrans took it first, so we need to switch things around
 	if (defined $_[0] and defined $_[1] and defined $_[2]) {
 		return &trans ($_[1], $_[2], $_[0]);
-	} else {
+	}
+	else {
 		return -1;
 	}
 }
@@ -894,7 +936,7 @@ None, obviously!
 
 This software released under the terms of the GNU General Public License 2.0
 
-Copyright (C) 2003-2007 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
+Copyright (C) 2003-2008 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
 
 =cut
 

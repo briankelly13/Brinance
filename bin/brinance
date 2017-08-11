@@ -2,7 +2,7 @@
 #
 # This software released under the terms of the GNU General Public License 2.0
 #
-# Copyright (C) 2003-2007 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
+# Copyright (C) 2003-2008 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ brinance - CLI interface to Brinance module
 
 =head1 VERSION
 
-Version 4.46
+Version 4.50
 
 =head1 SYNOPSIS
 
@@ -44,7 +44,7 @@ different interface to the same module.
 
 use Brinance;
 
-my $VERSION = '4.46';
+my $VERSION = '4.50';
 
 # We first pull apart all arguments and push them or their equivalent onto @arglist
 my @arglist;
@@ -72,11 +72,13 @@ foreach (@ARGV) {
 
 		if (defined $options{$gnu_option}) {
 			push @arglist, '-' . $options{$gnu_option};
-		} else {
+		}
+		else {
 			print STDERR "ERROR: Unrecognized GNU style option: '$gnu_option'\n";
 			&usage(1);
 		}
-	} elsif (/^-./) {
+	}
+	elsif (/^-./) {
 		my @opts = split //, (substr $_, 1);
 
 		my $num = undef;
@@ -87,13 +89,16 @@ foreach (@ARGV) {
 					$num = undef;
 				}
 				push @arglist, "-$opt";
-			} elsif ($opt =~ /\d/) {
+			}
+			elsif ($opt =~ /\d/) {
 				if (defined $num) {
 					$num .= $opt;
-				} else {
+				}
+				else {
 					$num = $opt;
 				}
-			} else {
+			}
+			else {
 				print STDERR "ERROR: Unrecognized option: '-$opt'\n";
 				&usage(1);
 			}
@@ -102,7 +107,8 @@ foreach (@ARGV) {
 		if (defined $num) {
 			push @arglist, "-$num";
 		}
-	} else {
+	}
+	else {
 		push @arglist, $_;
 	}
 }
@@ -135,62 +141,78 @@ while (@arglist) {
 
 		if (1 == $out) {
 			print STDERR "WARNING: Created account 0 (this shouldn't happen here..)\n";
-		} elsif (0 == $out) {
+		}
+		elsif (0 == $out) {
 			print "-- working with account $current_acct\n";
-		} elsif (-1 == $out) {
+		}
+		elsif (-1 == $out) {
 			print STDERR "ERROR: account $current_acct doesn't exist.\nUse -r or --create\n";
 			&usage (1);
-		} else {
+		}
+		else {
 			print STDERR "ERROR: &switch_acct undefined output. Check your data. Exitting..\n";
 			exit (1);
 		}
-	} elsif ($_ eq '-v') {
+	}
+	elsif ($_ eq '-v') {
 		&cli_version();
-	} elsif ($_ eq '-h') {
+	}
+	elsif ($_ eq '-h') {
 		&usage (0, 1);
-	} elsif ($_ eq '-b') {
+	}
+	elsif ($_ eq '-b') {
 		print 'Balance: ', &balance(), "\n";
-	} elsif ($_ eq '-c') {
+	}
+	elsif ($_ eq '-c') {
 		my $amount = shift @arglist;
 		my $comment = shift @arglist;
 		&CLItrans ($amount, $comment, 1);
-	} elsif ($_ eq '-d') {
+	}
+	elsif ($_ eq '-d') {
 		my $amount = shift @arglist;
 		my $comment = shift @arglist;
 		&CLItrans ($amount, $comment, 0);
-	} elsif ($_ eq '-C') {
+	}
+	elsif ($_ eq '-C') {
 		my $date = shift @arglist;
 		my $amount = shift @arglist;
 		my $comment = shift @arglist;
 		&CLItrans ($amount, $comment, 1, $date);
-	} elsif ($_ eq '-D') {
+	}
+	elsif ($_ eq '-D') {
 		my $date = shift @arglist;
 		my $amount = shift @arglist;
 		my $comment = shift @arglist;
 		&CLItrans ($amount, $comment, 0, $date);
-	} elsif ($_ eq '-B') {
+	}
+	elsif ($_ eq '-B') {
 		my $date = shift @arglist;
 
 		if ($date) {
 			if ($date =~ /^\d{2,12}$/ or $date =~ /^\+(\d+)$/) {
 				$date = &handleDate($date);
-			} else {
+			}
+			else {
 				print STDERR "ERROR: date not in 12-digit or +<days> format\n";
 				&usage (1);
 			}
 
 			print "account $current_acct balance at $date: ", &balance($date), "\n";
-		} else {
+		}
+		else {
 			print STDERR "ERROR: dated balance requires an argument\n";
 			&usage (1);
 		}
-	} elsif ($_ eq '-n') {
+	}
+	elsif ($_ eq '-n') {
 		if (my $name = &getName()) {
 			print "account $current_acct name: $name\n";
-		} else {
+		}
+		else {
 			print "No name for account $current_acct\n";
 		}
-	} elsif ($_ eq '-r') {
+	}
+	elsif ($_ eq '-r') {
 		my $account = shift @arglist;
 		my $name = shift @arglist;
 
@@ -201,34 +223,42 @@ while (@arglist) {
 				# already exists
 				print "account $account already exists\n";
 				exit (0);
-			} elsif (0 == $out) {
+			}
+			elsif (0 == $out) {
 				# success
 				print "account $account created successfully\n";
-			} elsif (-1 == $out) {
+			}
+			elsif (-1 == $out) {
 				# too few
 				print "too few arguments to create()\n";
-			} else {
+			}
+			else {
 				print STDERR "ERROR: undefined output from getName(); Check your accounts file..\n";
 				print "Exitting..\n";
 				exit (1);
 			}
-		} else {
+		}
+		else {
 			print STDERR "ERROR: too few arguments to create\n";
 			&usage (1);
 		}
-	} elsif ($_ eq '-a') {
+	}
+	elsif ($_ eq '-a') {
 		&printAccountSummary();
-	} elsif ($_ eq '-A') {
+	}
+	elsif ($_ eq '-A') {
 		my $date = &handleDate(shift @arglist);
 		&printAccountSummary($date);
-	} elsif ($_ eq '-t') {
+	}
+	elsif ($_ eq '-t') {
 		my $amount = shift @arglist;
 		my $from = shift @arglist;
 		my $to = shift @arglist;
 		my $comment = shift @arglist;
 
 		&transfer($now, $amount, $from, $to, $comment);
-	} elsif ($_ eq '-T') {
+	}
+	elsif ($_ eq '-T') {
 		my $date = shift @arglist;
 		my $amount = shift @arglist;
 		my $from = shift @arglist;
@@ -236,7 +266,8 @@ while (@arglist) {
 		my $comment = shift @arglist;
 
 		&transfer($date, $amount, $from, $to, $comment);
-	} else {
+	}
+	else {
 		# unrecognized option/argument
 		print STDERR "ERROR: Unrecognized option: '$_'\n";
 		&usage (1);
@@ -293,7 +324,8 @@ sub usage {
 
 		print "\nRun with no arguments to run menu-based interface.\n";
 		print "See README for more information.\n";
-	} else {
+	}
+	else {
 		print "For more information, type:\n\t$exec --help\n";
 	}
 
@@ -320,13 +352,15 @@ sub CLItrans {
 		if (defined $date) {
 			if ($date =~ /^\d{2,12}$/ or $date =~ /^\+\d+$/ ) {
 				$date_mod = &handleDate($date);
-			} else {
+			}
+			else {
 				print STDERR "ERROR: date not formatted correctly\n";
 				&usage(1);
 			}
 
 			$out = &trans ($amount, $comment, $date_mod);
-		} else {
+		}
+		else {
 			$out = &trans ($amount, $comment);
 		}
 
@@ -335,11 +369,13 @@ sub CLItrans {
 
 			if (defined $date_mod && $date_mod > $now) {
 				print "Balance at date $date_mod: ", &balance($date_mod), "\n";
-			} else {
+			}
+			else {
 				print 'Balance after transaction: ', &balance(), "\n";
 			}
 		} # else: bad output is handled in above function
-	} else {
+	}
+	else {
 		print STDERR "ERROR: too few arguments for transaction\n";
 		&usage (1);
 	}
@@ -367,11 +403,14 @@ sub handleDate {
 			}
 		}
 		$date = $year . $mon . $mday . $hour . $min;
-	} elsif ($in =~ /^\d{12}$/) {
+	}
+	elsif ($in =~ /^\d{12}$/) {
 		$date = $in;
-	} elsif ($in =~ /^\d{1,11}$/) {
+	}
+	elsif ($in =~ /^\d{1,11}$/) {
 		$date = (substr ($now, 0, 12 - (length $in))) . $in;
-	} else {
+	}
+	else {
 		print STDERR "ERROR: invalid date format: $in\n";
 		&usage (1);
 	}
@@ -389,7 +428,8 @@ sub printAccountSummary {
 	my $dated;
 	if (defined $date) {
 		$dated = 1;
-	} else {
+	}
+	else {
 		$dated = 0;
 		$date = $now;
 	}
@@ -407,7 +447,8 @@ sub printAccountSummary {
 			$name = $name ? $name : '<No Name>';
 			if ($dated) {
 				print "Account $acct: $name\nBalance at $date: $bal\n--\n";
-			} else {
+			}
+			else {
 				print "Account $acct: $name\nBalance: $bal\n--\n";
 			}
 		}
@@ -415,7 +456,8 @@ sub printAccountSummary {
 
 	if ($dated) {
 		print "Total at $date: ", sprintf('%.2f', $total), "\n--\n";
-	} else {
+	}
+	else {
 		print 'Total: ', sprintf('%.2f', $total), "\n--\n";
 	}
 
@@ -471,16 +513,20 @@ sub checkTransOutput {
 
 	if (0 == $out) {
 		return 1;
-	} elsif (-1 == $out) {
+	}
+	elsif (-1 == $out) {
 		print STDERR "ERROR: too few arguments to trans()\n";
 		&usage (1);
-	} elsif (-2 == $out) {
+	}
+	elsif (-2 == $out) {
 		print STDERR "ERROR: zero-value transaction\n";
 		&usage (1);
-	} elsif (-3 == $out) {
+	}
+	elsif (-3 == $out) {
 		print STDERR "ERROR: invalid date format specified\n";
 		&usage (1);
-	} else {
+	}
+	else {
 		print STDERR "ERROR: undefined output from trans(); Check your accounts file..\n";
 		print STDERR "Exitting..\n";
 		exit (1);
@@ -558,7 +604,8 @@ sub menu {
 
 		if (exists $menu_options{$in}) {
 			&{$menu_options{$in}{'action'}};
-		} else {
+		}
+		else {
 			print "Bad choice: '$in'\nChoose again.\n\n";
 		}
 	}
@@ -586,10 +633,12 @@ sub menu_trans {
 		if (not defined $amount) {
 			print "Cancelling transaction..\n";
 			return;
-		} elsif ($amount =~ /\d/ and $amount =~ /^[-\d.]*$/) {
+		}
+		elsif ($amount =~ /\d/ and $amount =~ /^[-\d.]*$/) {
 			$amount *= $mult;
 			$bad_entry = 0;
-		} else {
+		}
+		else {
 			print "invalid entry: '$amount'\n";
 		}
 	}
@@ -608,9 +657,11 @@ sub menu_trans {
 		if (not defined $comment) {
 			print "Cancelling transaction..\n";
 			return;
-		} elsif ($comment) {
+		}
+		elsif ($comment) {
 			$bad_entry = 0;
-		} else {
+		}
+		else {
 			print "No comment registered..\n";
 		}
 	}
@@ -618,17 +669,19 @@ sub menu_trans {
 	my $out;
 	if ($date eq 'now') {
 		$out = &trans ($amount, $comment);
-	} else {
+	}
+	else {
 		$out = &trans ($amount, $comment, $date);
 	}
 
 	if (&checkTransOutput($out)) {
 		print 'Transaction applied: ';
 
-		if ($date > $now) {
-			print "Balance at date $date: ", &balance($date), "\n";
-		} else {
+		if (('now' eq $date) or ($date <= $now)) {
 			print 'Balance after transaction: ', &balance(), "\n";
+		}
+		else {
+			print "Balance at date $date: ", &balance($date), "\n";
 		}
 	} # else: bad output is handled in above function
 }
@@ -662,9 +715,11 @@ sub change_account {
 		if (not defined $account) {
 			print "Cancelling account change..\n";
 			return;
-		} elsif ($account =~ /^\d+$/ and exists $valid_accounts{$account}) {
+		}
+		elsif ($account =~ /^\d+$/ and exists $valid_accounts{$account}) {
 			$bad_entry = 0;
-		} else {
+		}
+		else {
 			print "'$account' is not a valid account\n";
 		}
 		&switch_acct($active_account);
@@ -674,12 +729,15 @@ sub change_account {
 
 	if (1 == $out) {
 		print STDERR "WARNING: Created account 0 (this shouldn't happen here..)\n";
-	} elsif (0 == $out) {
+	}
+	elsif (0 == $out) {
 		print "-- working with account $current_acct\n";
-	} elsif (-1 == $out) {
+	}
+	elsif (-1 == $out) {
 		print STDERR "ERROR: account $current_acct doesn't exist.\nUse -r or --create\n";
 		&usage (1);
-	} else {
+	}
+	else {
 		print STDERR "ERROR: &switch_acct undefined output. Check your data. Exitting..\n";
 		exit (1);
 	}
@@ -699,7 +757,8 @@ sub menu_accounts_summary {
 
 	if ($date ne 'now') {
 		&printAccountSummary($date);
-	} else {
+	}
+	else {
 		&printAccountSummary();
 	}
 }
@@ -724,10 +783,13 @@ sub menu_get_date {
 
 		if ($date eq 'now') {
 			$bad_entry = 0;
-		} elsif ($date =~ /^\d{1,12}$/ or $date =~ /^\+\d+/) {
+			$date = $now;
+		}
+		elsif ($date =~ /^\d{1,12}$/ or $date =~ /^\+\d+/) {
 			$bad_entry = 0;
 			$date = &handleDate($date);
-		} else {
+		}
+		else {
 			print "invalid entry: '$date'\n";
 		}
 	}
@@ -755,9 +817,11 @@ sub menu_transfer {
 		if (not defined $from) {
 			print "Cancelling transfer..\n";
 			return;
-		} elsif ($accounts{$from}) {
+		}
+		elsif ($accounts{$from}) {
 			$bad_entry = 0;
-		} else {
+		}
+		else {
 			print "Account $from does not exist.\n";
 		}
 	}
@@ -770,13 +834,16 @@ sub menu_transfer {
 		if (not defined $to) {
 			print "Cancelling transfer..\n";
 			return;
-		} elsif ($accounts{$to}) {
+		}
+		elsif ($accounts{$to}) {
 			if ($from != $to) {
 				$bad_entry = 0;
-			} else {
+			}
+			else {
 				print "FROM '$from' equal to TO '$to'\n";
 			}
-		} else {
+		}
+		else {
 			print "Account $to does not exist.\n";
 		}
 	}
@@ -789,9 +856,11 @@ sub menu_transfer {
 		if (not defined $amount) {
 			print "Cancelling transfer..\n";
 			return;
-		} elsif ($amount =~ /\d/ and $amount =~ /^[\d.]*$/) {
+		}
+		elsif ($amount =~ /\d/ and $amount =~ /^[\d.]*$/) {
 			$bad_entry = 0;
-		} else {
+		}
+		else {
 			print "invalid entry: '$amount'\n";
 		}
 	}
@@ -800,7 +869,8 @@ sub menu_transfer {
 	if (not defined $date) {
 		print "Cancelling transfer..\n";
 		return;
-	} elsif ($date eq 'now') {
+	}
+	elsif ($date eq 'now') {
 		$date = $now;
 	}
 
@@ -812,9 +882,11 @@ sub menu_transfer {
 		if (not defined $comment) {
 			print "Cancelling transfer..\n";
 			return;
-		} elsif ($comment) {
+		}
+		elsif ($comment) {
 			$bad_entry = 0;
-		} else {
+		}
+		else {
 			print "No comment registered..\n";
 		}
 	}
@@ -831,7 +903,7 @@ sub cli_version {
 	print "Brinance module version: " . &version() . "\n";
 	print "brinance CLI version: $VERSION\n";
 	print "\n";
-	print "Copyright (C) 2003-2007 Brian Kelly locoburger\@gmail.com\n";
+	print "Copyright (C) 2003-2008 Brian Kelly locoburger\@gmail.com\n";
 	print "brinance comes with ABSOLUTELY NO WARRANTY\n";
 	print "This is free software, and you are welcome to redistribute it\n";
 	print "under certain conditions. See LICENSE for details.\n";
@@ -857,9 +929,11 @@ sub menu_create_account {
 		if (not defined $account) {
 			print "Cancelling account creation..\n";
 			return;
-		} elsif ($accounts{$account}) {
+		}
+		elsif ($accounts{$account}) {
 			print "Account $account already exists.\n";
-		} else {
+		}
+		else {
 			$bad_entry = 0;
 		}
 	}
@@ -876,13 +950,16 @@ sub menu_create_account {
 		# already exists
 		print "account $account already exists\n";
 		exit (0);
-	} elsif (0 == $out) {
+	}
+	elsif (0 == $out) {
 		# success
 		print "account $account created successfully\n";
-	} elsif (-1 == $out) {
+	}
+	elsif (-1 == $out) {
 		# too few
 		print "too few arguments to create()\n";
-	} else {
+	}
+	else {
 		print STDERR "ERROR: undefined output from getName(); Check your accounts file..\n";
 		print "Exitting..\n";
 		exit (1);
@@ -895,9 +972,11 @@ sub menu_balance {
 	if (not defined $date) {
 		print "Cancelling balance..\n";
 		return;
-	} elsif ($date eq 'now') {
+	}
+	elsif ($date eq 'now') {
 		print 'Balance: ', &balance(), "\n";
-	} else {
+	}
+	else {
 		print 'Balance: ', &balance($date), "\n";
 	}
 }
@@ -914,10 +993,12 @@ sub menu_input {
 	if ('cancel' eq $in) {
 		# return and check for undef
 		return undef;
-	} elsif ('quit' eq $in) {
+	}
+	elsif ('quit' eq $in) {
 		print "Quitting..\n";
 		exit 0;
-	} else {
+	}
+	else {
 		return $in;
 	}
 }
