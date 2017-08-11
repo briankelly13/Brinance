@@ -649,7 +649,10 @@ sub _setup {
 		open (FUTURE, "$account_dir/futures") or return;
 		while (<FUTURE>) {
 			chomp;
-			if (not $has_last_updates and /^ACCOUNT (\d+): (\d{12})$/) {
+			if (/^\s*#/) {
+				next;
+			}
+			elsif (not $has_last_updates and /^ACCOUNT (\d+): (\d{12})$/) {
 				# ignore if there is a last_updates file
 				if (defined $accounts{$1}) {
 					$accounts{$1}{'updated'} = $2;
