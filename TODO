@@ -6,3 +6,6 @@
 * menu-based transaction entry (noargs)
 * past transaction editting via menu?
 * release iank's updates (POD, distro and more!)
+
+* remove documentation of brinance script subroutines?
+* related -- document command line usage in POD so man page looks good

@@ -32,7 +32,7 @@ brinance - CLI interface to Brinance module
 
 =head1 VERSION
 
-Version 4.45
+Version 4.46
 
 =head1 SYNOPSIS
 
@@ -44,7 +44,7 @@ different interface to the same module.
 
 use Brinance;
 
-my $VERSION = '4.45';
+my $VERSION = '4.46';
 
 # We first pull apart all arguments and push them or their equivalent onto @arglist
 my @arglist;
@@ -149,7 +149,7 @@ while (@arglist) {
 	} elsif ($_ eq '-h') {
 		&usage (0, 1);
 	} elsif ($_ eq '-b') {
-		printf ("Balance: %.2f\n", &balance ());
+		print 'Balance: ', &balance(), "\n";
 	} elsif ($_ eq '-c') {
 		my $amount = shift @arglist;
 		my $comment = shift @arglist;
@@ -179,7 +179,7 @@ while (@arglist) {
 				&usage (1);
 			}
 
-			printf "account $current_acct balance at $date: %.2f\n", &balance($date);
+			print "account $current_acct balance at $date: ", &balance($date), "\n";
 		} else {
 			print STDERR "ERROR: dated balance requires an argument\n";
 			&usage (1);
@@ -291,7 +291,8 @@ sub usage {
   -v --version -> version
     $exec -v\n";
 
-		print "\nSee README for more information.\n";
+		print "\nRun with no arguments to run menu-based interface.\n";
+		print "See README for more information.\n";
 	} else {
 		print "For more information, type:\n\t$exec --help\n";
 	}
@@ -333,9 +334,9 @@ sub CLItrans {
 			print 'Dated transaction applied: ';
 
 			if (defined $date_mod && $date_mod > $now) {
-				printf "Balance at date $date_mod: %.2f\n", &balance($date_mod);
+				print "Balance at date $date_mod: ", &balance($date_mod), "\n";
 			} else {
-				printf "Balance after transaction: %.2f\n", &balance();
+				print 'Balance after transaction: ', &balance(), "\n";
 			}
 		} # else: bad output is handled in above function
 	} else {
@@ -405,17 +406,17 @@ sub printAccountSummary {
 			my $name = &getName;
 			$name = $name ? $name : '<No Name>';
 			if ($dated) {
-				print "Account $acct: $name\nBalance at $date: " . sprintf('%.2f', $bal) . "\n--\n";
+				print "Account $acct: $name\nBalance at $date: $bal\n--\n";
 			} else {
-				print "Account $acct: $name\nBalance: " . sprintf('%.2f', $bal) . "\n--\n";
+				print "Account $acct: $name\nBalance: $bal\n--\n";
 			}
 		}
 	}
 
 	if ($dated) {
-		print "Total at $date: " . sprintf('%.2f', $total) . "\n--\n";
+		print "Total at $date: ", sprintf('%.2f', $total), "\n--\n";
 	} else {
-		print "Total: " . sprintf('%.2f', $total) . "\n--\n";
+		print 'Total: ', sprintf('%.2f', $total), "\n--\n";
 	}
 
 	&switch_acct($ca);
@@ -446,14 +447,14 @@ sub transfer {
 	# debit from-account
 	my $out = &trans (-1 * $amount, "transfer to account #$to: $comment", $date);
 	if (&checkTransOutput($out)) {
-		printf "Transaction applied to account #$from: Balance at date $date: %.2f\n", &balance($date);
+		print "Transaction applied to account #$from: Balance at date $date: ", &balance($date), "\n";
 	} # else: bad output is handled in above function
 
 	# credit to-account
 	&switch_acct($to);
 	$out = &trans ($amount, "transfer from account #$from: $comment", $date);
 	if (&checkTransOutput($out)) {
-		printf "Transaction applied to account #$to: Balance at date $date: %.2f\n", &balance($date);
+		print "Transaction applied to account #$to: Balance at date $date: ", &balance($date), "\n";
 	} # else: bad output is handled in above function
 
 	#switch back
@@ -513,7 +514,7 @@ sub menu {
 		},
 		'b' => {
 			text => 'Check current balance of current account',
-			action => sub { printf ("Balance: %.2f\n", &balance ()) },
+			action => \&menu_balance,
 		},
 		's' => {
 			text => 'Get accounts summary',
@@ -530,6 +531,10 @@ sub menu {
 		'n' => {
 			'text' => 'Create new account',
 			'action' => \&menu_create_account,
+		},
+		'h' => {
+			'text' => 'Help',
+			'action' => \&menu_help,
 		},
 	);
 
@@ -576,10 +581,12 @@ sub menu_trans {
 	my $bad_entry = 1;
 	while ($bad_entry) {
 		print "Please enter $name amount: ";
-		$amount = <STDIN>;
-		chomp $amount;
+		$amount = &menu_input();
 
-		if ($amount =~ /\d/ and $amount =~ /^[-\d.]*$/) {
+		if (not defined $amount) {
+			print "Cancelling transaction..\n";
+			return;
+		} elsif ($amount =~ /\d/ and $amount =~ /^[-\d.]*$/) {
 			$amount *= $mult;
 			$bad_entry = 0;
 		} else {
@@ -588,14 +595,20 @@ sub menu_trans {
 	}
 
 	$date = &menu_get_date($name);
+	if (not defined $date) {
+		print "Cancelling transaction..\n";
+		return;
+	}
 
 	$bad_entry = 1;
 	while ($bad_entry) {
 		print "Please enter a transaction description:\n> ";
-		$comment = <STDIN>;
-		chomp $comment;
+		$comment = &menu_input();
 
-		if ($comment) {
+		if (not defined $comment) {
+			print "Cancelling transaction..\n";
+			return;
+		} elsif ($comment) {
 			$bad_entry = 0;
 		} else {
 			print "No comment registered..\n";
@@ -612,10 +625,10 @@ sub menu_trans {
 	if (&checkTransOutput($out)) {
 		print 'Transaction applied: ';
 
-		if ($date ne 'now') {
-			printf "Balance at date $date: %.2f\n", &balance($date);
+		if ($date > $now) {
+			print "Balance at date $date: ", &balance($date), "\n";
 		} else {
-			printf "Balance after transaction: %.2f\n", &balance();
+			print 'Balance after transaction: ', &balance(), "\n";
 		}
 	} # else: bad output is handled in above function
 }
@@ -644,10 +657,12 @@ sub change_account {
 		}
 
 		print "Which account would you like to use?\n> ";
-		$account = <STDIN>;
-		chomp $account;
+		$account = &menu_input();
 
-		if ($account =~ /^\d+$/ and exists $valid_accounts{$account}) {
+		if (not defined $account) {
+			print "Cancelling account change..\n";
+			return;
+		} elsif ($account =~ /^\d+$/ and exists $valid_accounts{$account}) {
 			$bad_entry = 0;
 		} else {
 			print "'$account' is not a valid account\n";
@@ -677,6 +692,10 @@ presents an accounts summary at a menu-driven time
 =cut
 sub menu_accounts_summary {
 	my $date = &menu_get_date('summary');
+	if (not defined $date) {
+		print "Cancelling summary..\n";
+		return;
+	}
 
 	if ($date ne 'now') {
 		&printAccountSummary($date);
@@ -697,9 +716,11 @@ sub menu_get_date {
 	my $date;
 	while ($bad_entry) {
 		print "Please enter $type time; type 'now' for now: ";
-		$date = <STDIN>;
-		chomp $date;
+		$date = &menu_input();
+		return undef if not defined $date;
+
 		$date = lc $date;
+		$date ||= 'now';
 
 		if ($date eq 'now') {
 			$bad_entry = 0;
@@ -729,10 +750,12 @@ sub menu_transfer {
 	my $bad_entry = 1;
 	while ($bad_entry) {
 		print "Please enter which account you'd like to transfer FROM:\n> ";
-		$from = <STDIN>;
-		chomp $from;
+		$from = &menu_input();
 
-		if ($accounts{$from}) {
+		if (not defined $from) {
+			print "Cancelling transfer..\n";
+			return;
+		} elsif ($accounts{$from}) {
 			$bad_entry = 0;
 		} else {
 			print "Account $from does not exist.\n";
@@ -742,10 +765,12 @@ sub menu_transfer {
 	$bad_entry = 1;
 	while ($bad_entry) {
 		print "Please enter which account you'd like to transfer TO:\n> ";
-		$to = <STDIN>;
-		chomp $to;
+		$to = &menu_input();
 
-		if ($accounts{$to}) {
+		if (not defined $to) {
+			print "Cancelling transfer..\n";
+			return;
+		} elsif ($accounts{$to}) {
 			if ($from != $to) {
 				$bad_entry = 0;
 			} else {
@@ -759,10 +784,12 @@ sub menu_transfer {
 	$bad_entry = 1;
 	while ($bad_entry) {
 		print "Please enter transfer amount: ";
-		$amount = <STDIN>;
-		chomp $amount;
+		$amount = &menu_input();
 
-		if ($amount =~ /\d/ and $amount =~ /^[\d.]*$/) {
+		if (not defined $amount) {
+			print "Cancelling transfer..\n";
+			return;
+		} elsif ($amount =~ /\d/ and $amount =~ /^[\d.]*$/) {
 			$bad_entry = 0;
 		} else {
 			print "invalid entry: '$amount'\n";
@@ -770,15 +797,22 @@ sub menu_transfer {
 	}
 
 	$date = &menu_get_date('transfer');
-	$date = $date eq 'now' ? $now : $date;
+	if (not defined $date) {
+		print "Cancelling transfer..\n";
+		return;
+	} elsif ($date eq 'now') {
+		$date = $now;
+	}
 
 	$bad_entry = 1;
 	while ($bad_entry) {
 		print "Please enter a transfer description:\n> ";
-		$comment = <STDIN>;
-		chomp $comment;
+		$comment = &menu_input();
 
-		if ($comment) {
+		if (not defined $comment) {
+			print "Cancelling transfer..\n";
+			return;
+		} elsif ($comment) {
 			$bad_entry = 0;
 		} else {
 			print "No comment registered..\n";
@@ -788,7 +822,7 @@ sub menu_transfer {
 	&transfer($date, $amount, $from, $to, $comment);
 }
 
-=head2 cli_version
+=head2 cli_version ( )
 
 print the program version information
 
@@ -803,7 +837,7 @@ sub cli_version {
 	print "under certain conditions. See LICENSE for details.\n";
 }
 
-=head2 menu_create_account
+=head2 menu_create_account ( )
 
 presents menu interface for account creation
 
@@ -818,10 +852,12 @@ sub menu_create_account {
 	my $bad_entry = 1;
 	while ($bad_entry) {
 		print "Please enter an account number:\n> ";
-		$account = <STDIN>;
-		chomp $account;
+		$account = &menu_input();
 
-		if ($accounts{$account}) {
+		if (not defined $account) {
+			print "Cancelling account creation..\n";
+			return;
+		} elsif ($accounts{$account}) {
 			print "Account $account already exists.\n";
 		} else {
 			$bad_entry = 0;
@@ -829,8 +865,11 @@ sub menu_create_account {
 	}
 
 	print "Please enter an account name (or just hit enter for no name):\n> ";
-	$name = <STDIN>;
-	chomp $name;
+	$name = &menu_input();
+	if (not defined $name) {
+		print "Cancelling account creation..\n";
+		return;
+	}
 
 	my $out = &create ($name, $account);
 	if (1 == $out) {
@@ -848,4 +887,58 @@ sub menu_create_account {
 		print "Exitting..\n";
 		exit (1);
 	}
+}
+
+sub menu_balance {
+	my $date = &menu_get_date('balance');
+
+	if (not defined $date) {
+		print "Cancelling balance..\n";
+		return;
+	} elsif ($date eq 'now') {
+		print 'Balance: ', &balance(), "\n";
+	} else {
+		print 'Balance: ', &balance($date), "\n";
+	}
+}
+
+=head2 menu_input ( )
+
+drives menu interface for reading user input
+
+=cut
+sub menu_input {
+	my $in = <STDIN>;
+	chomp $in;
+
+	if ('cancel' eq $in) {
+		# return and check for undef
+		return undef;
+	} elsif ('quit' eq $in) {
+		print "Quitting..\n";
+		exit 0;
+	} else {
+		return $in;
+	}
+}
+
+=head2 menu_help ( )
+
+prints out menu help text
+
+=cut
+sub menu_help {
+	print "**** Help on using the brinance menu interface ****\n\n";
+	print "-- Just answer the questions.\n";
+	print "-- Press the <ENTER> or <RETURN> key when you're done with each response.\n";
+	print "-- Type the letter for the task you would like to do,\n";
+	print "   and a series of questions will begin to help you through that task.\n";
+	print "-- To cancel a command while answering questions, and return to the menu,\n";
+	print "   type 'cancel' as your answer for any question.\n";
+	print "-- To quit the program while answering a question,\n";
+	print "   type 'quit' as your answer for any question.\n";
+
+	print "\nFor details on using the command-line interface, call the command\n";
+	print "with the '--help' option: \$ brinance --help\n";
+	print "Or, consult the README that came in the brinance distribution.\n";
 }

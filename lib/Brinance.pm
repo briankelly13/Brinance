@@ -36,7 +36,7 @@ Brinance - lightweight financial planner/tracker
 
 =head1 VERSION
 
-Version 4.45
+Version 4.46
 
 =head1 SYNOPSIS
 
@@ -55,8 +55,10 @@ subroutines have been deprecated since then, though.
 
 =cut
 
+#FIXME: blowing away futures lines occasionally.. :(
+
 our @ISA = ('Exporter');
-our $VERSION = '4.45';
+our $VERSION = '4.46';
 our @EXPORT = qw(
 	$current_acct $now $account_dir
 	&getName &balance &trans &get_accts
@@ -138,15 +140,24 @@ sub balance {
 		foreach my $fut (@futures) {
 			my @dates = ();
 			if (($fut->{'type'} eq 'pattern') and ($fut->{'account'} == $current_acct)) {
-				@dates = &_calc_future_patterns ($fut->{'year'}, $fut->{'month'}, $fut->{'day'},
-				$fut->{'day_logic'}, $fut->{'dayow'}, $fut->{'hour'}, $fut->{'min'}, $fut->{'origin'},
-				$now, $date_req);
+				@dates = &_calc_future_patterns (
+					$fut->{'year'}, $fut->{'month'}, $fut->{'day'},
+					$fut->{'day_logic'}, $fut->{'dayow'}, $fut->{'hour'},
+					$fut->{'min'}, $fut->{'origin'}, $now, $date_req,
+				);
 
 				foreach my $date (@dates) {
 					$total += $fut->{'amount'};
 				}
 			}
 		}
+	}
+
+	$total = sprintf '%.2f', $total;
+
+	# avoid -0.00 as balance
+	if ($total == 0) {
+		$total = '0.00';
 	}
 
 	return $total;
@@ -295,10 +306,11 @@ called before working with an account to apply future transactions if they are n
 
 =cut
 sub _update_futures {
+	&_renow;
+
 	foreach my $fut (@futures) {
 		my @dates = ();
 		if ($fut->{'type'} eq 'pattern' and $fut->{'account'} == $current_acct) {
-			&_renow;
 			@dates = &_calc_future_patterns (
 				$fut->{'year'},
 				$fut->{'month'},
@@ -714,6 +726,9 @@ sub _writechanges {
 		}
 	}
 
+unless (@futures) {
+	print "\@futures is empty..\n";
+}
 	foreach (@futures) {
 		print FUTURE $_->{'line'} . "\n";
 	}

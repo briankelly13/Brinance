@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Brinance
-version:             4.45
+version:             4.46
 abstract:            ~
 license:             ~
 generated_by:        ExtUtils::MakeMaker version 6.32

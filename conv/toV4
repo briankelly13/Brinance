@@ -17,10 +17,9 @@ mkdir "$account_dir/archive";
 
 my @lines;
 my @names;
-foreach ( glob ("$account_dir/account[0-9]*") ) {
-	my $filename = $_;
-	open ( FILE, $filename ) or die "ERROR: Could not open $_";
-	/.*\/account(\d+)/;
+foreach my $filename ( glob ("$account_dir/account[0-9]*") ) {
+	open ( FILE, $filename ) or die "ERROR: Could not open $filename";
+	$filename =~ /.*\/account(\d+)/;
 	my $account_number = $1;
 
 	my $date = "";
