@@ -7,9 +7,10 @@ use warnings;
 use strict;
 
 my $account_dir;
-if ($ARGV[0]) {
+if ( $ARGV[0] ) {
 	$account_dir = $ARGV[0];
-} else {
+}
+else {
 	$account_dir = "$ENV{HOME}/.brinance";
 }
 
@@ -17,97 +18,99 @@ mkdir "$account_dir/archive";
 
 my @lines;
 my @names;
-foreach my $filename ( glob ("$account_dir/account[0-9]*") ) {
-	open ( FILE, $filename ) or die "ERROR: Could not open $filename";
+foreach my $filename ( glob("$account_dir/account[0-9]*") ) {
 	$filename =~ /.*\/account(\d+)/;
 	my $account_number = $1;
 
-	my $date = "";
-	my $comment = "";
-	my $amount = 0;
+	my $date    = '';
+	my $comment = '';
+	my $amount  = 0;
 	my $nameset = 0;
-	while (<FILE>) {
+
+	open( my $FILE, '<', $filename ) or die "ERROR: Could not open $filename";
+	while (<$FILE>) {
 		chomp;
 		if (/^\s*#NAME: (.+)$/) {
-			push (@names, "ACCOUNT $account_number: $1");
+			push( @names, "ACCOUNT $account_number: $1" );
 			$nameset = 1;
 		}
-		elsif (!$date and /^#(\d{12})$/) {
+		elsif ( not $date and /^#(\d{12})$/ ) {
 			$date = $1;
 		}
-		elsif ($date and !$comment and /^#(.+)$/) {
+		elsif ( $date and not $comment and /^#(.+)$/ ) {
 			$comment = $1;
 		}
-		elsif ($date and $comment and !$amount) {
+		elsif ( $date and $comment and not $amount ) {
 			$amount = $_;
 
-			push (@lines, "$date\t$account_number\t$amount\t$comment");
-			$date = "";
-			$comment = "";
-			$amount = 0;
+			push( @lines, "$date\t$account_number\t$amount\t$comment" );
+			$date    = '';
+			$comment = '';
+			$amount  = 0;
 		}
 		else {
 			print STDERR "ERROR: $filename invalid at $_\n";
 		}
 	}
-	close FILE;
+	close $FILE;
 
-	open ( FUTURE, "$account_dir/future$account_number" ) or die "ERROR: Could not open future$account_number";
-	$date = "";
-	$comment = "";
-	$amount = 0;
-	while (<FUTURE>) {
+	$date    = '';
+	$comment = '';
+	$amount  = 0;
+
+	open( my $FUTURE, '<', "$account_dir/future$account_number" ) or die "ERROR: Could not open future$account_number";
+	while (<$FUTURE>) {
 		chomp;
 		if (/^\s*#NAME: (.+)$/) {
 			if ($nameset) {
-				next; # we already have the names
+				next;    # we already have the names
 			}
 			else {
-				push (@names, "ACCOUNT $account_number: $1");
+				push( @names, "ACCOUNT $account_number: $1" );
 				$nameset = 1;
 			}
 		}
-		elsif (!$date and /^#(\d{12})$/) {
+		elsif ( not $date and /^#(\d{12})$/ ) {
 			$date = $1;
 		}
-		elsif ($date and !$comment and /^#(.+)$/) {
+		elsif ( $date and not $comment and /^#(.+)$/ ) {
 			$comment = $1;
 		}
-		elsif ($date and $comment and !$amount) {
+		elsif ( $date and $comment and not $amount ) {
 			$amount = $_;
 
-			push (@lines, "$date\t$account_number\t$amount\t$comment");
-			$date = "";
-			$comment = "";
-			$amount = 0;
+			push( @lines, "$date\t$account_number\t$amount\t$comment" );
+			$date    = '';
+			$comment = '';
+			$amount  = 0;
 		}
 		else {
 			print STDERR "ERROR: future$account_number invalid at line $.\n";
 		}
 	}
-	close FUTURE;
+	close $FUTURE;
 
 	unless ($nameset) {
-		push (@names, "ACCOUNT $account_number");
+		push( @names, "ACCOUNT $account_number" );
 	}
 
-	if (link ("$account_dir/account$account_number", "$account_dir/archive/$filename") ) {
-		unlink ("$account_dir/account$account_number");
+	if ( link( "$account_dir/account$account_number", "$account_dir/archive/$filename" ) ) {
+		unlink("$account_dir/account$account_number");
 	}
-	if (link ("$account_dir/future$account_number", "$account_dir/archive/future$account_number") ) {
-		unlink ("$account_dir/future$account_number");
+	if ( link( "$account_dir/future$account_number", "$account_dir/archive/future$account_number" ) ) {
+		unlink("$account_dir/future$account_number");
 	}
 }
 
 @names = sort @names;
 @lines = sort @lines;
 
-open (ACCOUNTS, ">$account_dir/accounts") or die "ERROR: cannot create accounts file";
+open( my $ACCOUNTS, '>', "$account_dir/accounts" ) or die 'ERROR: cannot create accounts file';
 
-foreach (@names, @lines) {
-	print ACCOUNTS "$_\n";
+foreach ( @names, @lines ) {
+	print $ACCOUNTS "$_\n";
 }
-close ACCOUNTS;
+close $ACCOUNTS;
 
 print "If there are no errors above, the conversion was successful and you are ready to run brinance v4.\n";
 print "Your old account files were put in $account_dir/archive\n";
