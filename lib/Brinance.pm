@@ -22,12 +22,13 @@
 #       tabstop = 4     (These two lines should line up)
 #		tabstop = 4		(These two lines should line up)
 
+package Brinance;
+
 use strict;
 use warnings;
 
 use Date::Calc qw(Add_Delta_Days);
 
-package Brinance;
 require Exporter;
 
 =head1 NAME
@@ -108,7 +109,7 @@ sub getName {
 		return $new_accounts{$current_acct}{'name'} ne '' ? $new_accounts{$current_acct}{'name'} : undef;
 	}
 	else {
-		return undef;
+		return;
 	}
 }
 
@@ -308,6 +309,8 @@ sub _renow {
 	}
 
 	$now = $year . $mon . $mday . $hour . $min;
+
+	return $now;
 }
 
 =head2 _update_futures ( )
@@ -589,12 +592,13 @@ populates %accounts and @transactions
 sub _setup {
 	&_renow;
 
-	unless ( open( ACCOUNT, "$account_dir/accounts" ) ) {
+	my $ACCOUNT;
+	unless ( open( $ACCOUNT, '<', "$account_dir/accounts" ) ) {
 		&_initial_setup;
 		return;
 	}
 	else {
-		while (<ACCOUNT>) {
+		while (<$ACCOUNT>) {
 			chomp;
 			if (/^ACCOUNT (\d+):?(.*)$/) {
 				my ( $num, $name ) = ( $1, $2 );
@@ -626,14 +630,14 @@ sub _setup {
 				  };
 			}
 		}
-		close ACCOUNT;
+		close $ACCOUNT;
 
 		my $has_last_updates = 0;
 		if ( -e "$account_dir/last_updates" ) {
 			$has_last_updates = 1;
 
-			open( LAST_UPDATES, "$account_dir/last_updates" ) or return;
-			while (<LAST_UPDATES>) {
+			open( my $LAST_UPDATES, '<', "$account_dir/last_updates" ) or return;
+			while (<$LAST_UPDATES>) {
 				chomp;
 				if (/^ACCOUNT (\d+): (\d{12})$/) {
 					if ( defined $accounts{$1} ) {
@@ -644,11 +648,11 @@ sub _setup {
 					}
 				}
 			}
-			close LAST_UPDATES;
+			close $LAST_UPDATES;
 		}
 
-		open( FUTURE, "$account_dir/futures" ) or return;
-		while (<FUTURE>) {
+		open( my $FUTURE, '<', "$account_dir/futures" ) or return;
+		while (<$FUTURE>) {
 			chomp;
 			if (/^\s*#/) {
 				next;
@@ -704,7 +708,7 @@ sub _setup {
 				  };
 			}
 		}
-		close FUTURE;
+		close $FUTURE;
 	}
 }
 
@@ -718,56 +722,56 @@ writes new accounts file if there's been a change
 
 sub _writechanges {
 	if ( keys %new_accounts ) {
-		open( ACCOUNT, ">$account_dir/accounts" )
+		open( my $ACCOUNT, '>', "$account_dir/accounts" )
 		  or die "ERROR: Cannot open file $account_dir/accounts for writing: $!";
 
 		foreach ( sort { $a <=> $b } ( keys %accounts, keys %new_accounts ) ) {
 			if ( defined $accounts{$_} ) {
 				if ( exists $accounts{$_}{'name'} and $accounts{$_}{'name'} ne '' ) {
-					print ACCOUNT "ACCOUNT $_: " . $accounts{$_}{'name'} . "\n";
+					print $ACCOUNT "ACCOUNT $_: " . $accounts{$_}{'name'} . "\n";
 				}
 				else {
-					print ACCOUNT "ACCOUNT $_\n";
+					print $ACCOUNT "ACCOUNT $_\n";
 				}
 			}
 			elsif ( defined $new_accounts{$_} ) {
 				if ( $new_accounts{$_}{'name'} ne '' ) {
-					print ACCOUNT "ACCOUNT $_: " . $new_accounts{$_}{'name'} . "\n";
+					print $ACCOUNT "ACCOUNT $_: " . $new_accounts{$_}{'name'} . "\n";
 				}
 				else {
-					print ACCOUNT "ACCOUNT $_\n";
+					print $ACCOUNT "ACCOUNT $_\n";
 				}
 			}
 		}
 
 		foreach ( @transactions, @new_transactions ) {
 			if ( $_->{'type'} eq 'transaction' ) {
-				print ACCOUNT $_->{'date'} . "\t" . $_->{'account'} . "\t" . $_->{'amount'} . "\t" . $_->{'comment'} . "\n";
+				print $ACCOUNT $_->{'date'} . "\t" . $_->{'account'} . "\t" . $_->{'amount'} . "\t" . $_->{'comment'} . "\n";
 			}
 			elsif ( $_->{'type'} eq 'comment' ) {
-				print ACCOUNT $_->{'line'} . "\n";
+				print $ACCOUNT $_->{'line'} . "\n";
 			}
 		}
-		close ACCOUNT;
+		close $ACCOUNT;
 
 	}
 	elsif (@new_transactions) {
-		open( ACCOUNT, ">>$account_dir/accounts" )
+		open( my $ACCOUNT, '>>', "$account_dir/accounts" )
 		  or die "ERROR: Cannot open file $account_dir/accounts for appending: $!";
 
 		foreach (@new_transactions) {
 			if ( $_->{'type'} eq 'transaction' ) {
-				print ACCOUNT $_->{'date'} . "\t" . $_->{'account'} . "\t" . $_->{'amount'} . "\t" . $_->{'comment'} . "\n";
+				print $ACCOUNT $_->{'date'} . "\t" . $_->{'account'} . "\t" . $_->{'amount'} . "\t" . $_->{'comment'} . "\n";
 			}
 			elsif ( $_->{'type'} eq 'comment' ) {
-				print ACCOUNT $_->{'line'} . "\n";
+				print $ACCOUNT $_->{'line'} . "\n";
 			}
 		}
 
-		close ACCOUNT;
+		close $ACCOUNT;
 	}
 
-	open( LAST_UPDATES, ">$account_dir/last_updates" )
+	open( my $LAST_UPDATES, '>', "$account_dir/last_updates" )
 	  or die "ERROR: Cannot open file $account_dir/last_updates for writing: $!";
 
 	&_renow;
@@ -775,15 +779,15 @@ sub _writechanges {
 	foreach ( sort { $a <=> $b } ( keys %accounts, keys %new_accounts ) ) {
 		if ( defined $accounts{$_} ) {
 			$accounts{$_}{'updated'} = $now unless $accounts{$_}{'updated'};
-			print LAST_UPDATES "ACCOUNT $_: " . $accounts{$_}{'updated'} . "\n";
+			print $LAST_UPDATES "ACCOUNT $_: " . $accounts{$_}{'updated'} . "\n";
 		}
 		elsif ( defined $new_accounts{$_} ) {
 			$accounts{$_}{'updated'} = $now unless $accounts{$_}{'updated'};
-			print LAST_UPDATES "ACCOUNT $_: " . $new_accounts{$_}{'updated'} . "\n";
+			print $LAST_UPDATES "ACCOUNT $_: " . $new_accounts{$_}{'updated'} . "\n";
 		}
 	}
 
-	close LAST_UPDATES;
+	close $LAST_UPDATES;
 }
 
 =head2 _initial_setup ( )
