@@ -10,3 +10,5 @@
 * use fixed point math
   - amounts are currently read in as strings to begin with, then converted to floating point
 
+* redo command-line using Getopt::Long
+  - non-options: keep adding to transaction description, less quoting required
