@@ -12,3 +12,5 @@
 
 * redo command-line using Getopt::Long
   - non-options: keep adding to transaction description, less quoting required
+
+* reasonable/standard error handling

@@ -24,6 +24,8 @@
 
 package Brinance;
 
+use 5.014;
+
 use strict;
 use warnings;
 
@@ -57,7 +59,7 @@ subroutines have been deprecated since then, though.
 =cut
 
 our @ISA     = ('Exporter');
-our $VERSION = '4.50';
+our $VERSION = '4.59';
 our @EXPORT  = qw(
   $current_acct $now $account_dir
   &getName &balance &trans &get_accts
@@ -182,18 +184,18 @@ debits, positive amounts are credits. The subroutine returns as follows:
 =cut
 
 sub trans {
-	if ( 2 > scalar @_ ) {
+	my ( $amount, $comment, $req_date ) = @_;
+
+	if ( not defined $amount or not defined $comment ) {
 		return -1;    # too few arguments
 	}
-
-	my ( $amount, $comment, $req_date ) = @_;
 
 	$amount += 0;     # to make sure its numeric
 	if ( 0 == $amount ) {    # zero value transacrion
 		return -2;
 	}
 
-	if ($req_date) {         # was a date specified?
+	if ( defined $req_date ) {    # was a date specified?
 		unless ( $req_date =~ /^\d{12}$/ ) {    # invalid date format
 			return -3;
 		}
@@ -226,11 +228,13 @@ account number.  Returns as follows:
 =cut
 
 sub create {
-	if ( 2 > scalar @_ ) {
+	my ( $acct_name, $acct_num ) = @_;
+
+	if ( not defined $acct_name or not defined $acct_num ) {
 		return -1;
 	}
 
-	my ( $acct_name, $acct_num ) = @_;
+	#FIXME: don't coerce; if it's not numeric, fail
 	$acct_num += 0;    #Make it numeric
 
 	if ( defined $accounts{$acct_num} or defined $new_accounts{$acct_num} ) {
@@ -368,11 +372,16 @@ processes patterns lines in futures file between last_update and now
 =cut
 
 sub _calc_future_patterns {
-	unless ( 10 == scalar @_ ) {
-		return ();
-	}
-
-	my ( $year, $month, $day, $day_logic, $dayow, $hour, $min, $origin, $from_date, $to_date, ) = @_;
+	my $year      = shift or return;
+	my $month     = shift or return;
+	my $day       = shift or return;
+	my $day_logic = shift or return;
+	my $dayow     = shift or return;
+	my $hour      = shift or return;
+	my $min       = shift or return;
+	my $origin    = shift or return;
+	my $from_date = shift or return;
+	my $to_date   = shift or return;
 
 	$hour = ( length $hour ) eq 1 ? '0' . $hour : $hour;
 	$min  = ( length $min ) eq 1  ? '0' . $min  : $min;
@@ -556,8 +565,8 @@ all the valid values in a hash; i.e. "2-5,7,8,12-15" returns hash of
 =cut
 
 sub _gen_list {
+	my $item  = shift;
 	my %items = ();
-	my ($item) = @_;
 
 	unless ( $item eq '*' ) {    # leave %items uninitialized if so
 		my @holder = split( /,/, $item );
@@ -710,6 +719,8 @@ sub _setup {
 		}
 		close $FUTURE;
 	}
+
+	return;
 }
 
 =head2 _writechanges ( )
@@ -788,6 +799,8 @@ sub _writechanges {
 	}
 
 	close $LAST_UPDATES;
+
+	return;
 }
 
 =head2 _initial_setup ( )
@@ -830,9 +843,7 @@ sub _add_date {
 		return sprintf '%04d%02d%02d', $y, $m, $d;
 	}
 	else {
-		print STDERR "invalid date format passed to _add_date\n";
-		use Data::Dumper;
-		print STDERR Dumper \@_;
+		print STDERR "invalid date format passed to _add_date: '$date'\n";
 		die;
 	}
 }
@@ -847,7 +858,7 @@ return balance at $date
 
 =cut
 
-sub datedbalance {
+sub datedbalance {    ## no critic qw(Subroutines::RequireArgUnpacking)
 	return &balance(@_);
 }
 
@@ -865,10 +876,13 @@ applies a transaction at specified future time
 =cut
 
 sub datedtrans {
+	my $date    = shift;
+	my $amount  = shift;
+	my $comment = shift;
 
 	# trans takes the date last, datedtrans took it first, so we need to switch things around
-	if ( defined $_[0] and defined $_[1] and defined $_[2] ) {
-		return &trans( $_[1], $_[2], $_[0] );
+	if ( defined $date and defined $amount and defined $comment ) {
+		return trans( $amount, $comment, $date );
 	}
 	else {
 		return -1;

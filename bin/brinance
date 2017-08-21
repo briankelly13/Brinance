@@ -23,6 +23,8 @@
 #		tabstop = 4		(These two lines should line up)
 #       tabstop = 4     (These two lines should line up)
 
+use 5.014;
+
 use warnings;
 use strict;
 
@@ -293,7 +295,8 @@ sub usage {
 	my $exec = 'brinance';
 
 	if ($verbose) {
-		print "Usage:
+		print <<"EOF";
+Usage:
     \$ $exec <args>\n
  Accepted args:
   -b --balance -> show current balance
@@ -325,7 +328,8 @@ sub usage {
   -h --help -> help
     $exec -h
   -v --version -> version
-    $exec -v\n";
+    $exec -v
+EOF
 
 		print "\nRun with no arguments to run menu-based interface.\n";
 		print "See README for more information.\n";
@@ -548,7 +552,7 @@ sub checkTransOutput {
 		exit(1);
 	}
 
-	return 0;    # shouldn't get here
+	return;    # shouldn't get here
 }
 
 =head2 menu ( )
@@ -608,9 +612,15 @@ sub menu {
 		foreach (
 			sort {
 				# make Quit appear last
-				return 1  if $a eq 'q';
-				return -1 if $b eq 'q';
-				return $a cmp $b;
+				if ('q' eq $a) {
+					return 1;
+				}
+				elsif ('q' eq $b) {
+					return -1;
+				}
+				else {
+					return $a cmp $b;
+				}
 			} keys %menu_options
 		  )
 		{
