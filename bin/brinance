@@ -39,36 +39,70 @@ Version 4.50
 =head1 SYNOPSIS
 
 This is the author's Brinance CLI program. It's supposed to be useful
-in and of itself, but the code should also be helpful in developing a 
+in and of itself, but the code should also be helpful in developing a
 different interface to the same module.
 
 =cut
 
 use IO::Prompt::Tiny qw(prompt);
+use Getopt::Long;
 use Brinance;
 
 my $VERSION = '4.50';
 
+=old
 # We first pull apart all arguments and push them or their equivalent onto @arglist
 my @arglist;
 my %options = (
 	'help'          => 'h',
 	'version'       => 'v',
+	'name'          => 'n',
+	'create'        => 'r',
 	'credit'        => 'c',
 	'debit'         => 'd',
 	'balance'       => 'b',
 	'datedcredit'   => 'C',
 	'dateddebit'    => 'D',
 	'datedbalance'  => 'B',
-	'name'          => 'n',
-	'create'        => 'r',
 	'all'           => 'a',
 	'datedall'      => 'A',
 	'transfer'      => 't',
 	'datedtransfer' => 'T',
 );
 my $validoptions = join '', ( values %options );
+=cut
 
+# check if we need to convert old account# files to an accounts file
+#  if so, suggest they run the included conversion script (don't want conv code in here..)
+if ( not -e "$account_dir/accounts" and -e "$account_dir/account0" ) {
+	print "It looks like you've been running an older version of brinance.\n";
+	print "You will need to convert your account files to the new format.\n";
+
+	print "\nRun the 'conv/toV4' script that was included with this brinance package.\n";
+
+	exit(1);
+}
+
+switch_acct(0);    # sets us up to use account 0
+
+GetOptions(
+	'help' => sub { usage( 0, 1 ); },
+	'version' => \&cli_version,
+	'name|n' => \&print_name,
+	'create|r' => \&create_account,
+	'credit|c=s{2}' => \&credit,
+	'debit|d=s{2}' => \&debit,
+	'balance|b' => \&balance,
+	'datedcredit|C=s{3}' => \&datedcredit,
+	'dateddebit|D=s{3}' => \&dateddebit,
+	'datedbalance|B=s' => \&datedbalance,
+	'all|a' => \&all_accounts,
+	'datedall|A=s' => \&datedall_accounts,
+	'transfer|t=s{4}' => \&transfer,
+	'datedtransfer|T=s{5}' => \&datedtransfer,
+) or die "Unrecognized option!\n";
+
+=old
 foreach (@ARGV) {
 	if (/^--./) {    # GNU style option
 		my $gnu_option = substr $_, 2;
@@ -122,18 +156,6 @@ unless (@arglist) {
 	exit 0;
 }
 
-# check if we need to convert old account# files to an accounts file
-#  if so, suggest they run the included conversion script (don't want conv code in here..)
-if ( not -e "$account_dir/accounts" and -e "$account_dir/account0" ) {
-	print "It looks like you've been running an older version of brinance.\n";
-	print "You will need to convert your account files to the new format.\n";
-
-	print "\nRun the 'conv/toV4' script that was included with this brinance package.\n";
-
-	exit(1);
-}
-
-switch_acct(0);    # sets us up to use account 0
 
 # Process @arglist
 while (@arglist) {
@@ -279,6 +301,7 @@ while (@arglist) {
 		usage(1);
 	}
 }
+=cut
 
 exit(0);
 
@@ -348,7 +371,7 @@ applies a transaction
 =cut
 
 sub CLItrans {
-	my ( $amount, $comment, $credit, $date ) = @_;
+	my ( $amount, $comment, $date, $credit ) = @_;
 
 	if ( defined $amount and $amount == 0 ) {
 		$amount .= '.00';
@@ -360,7 +383,7 @@ sub CLItrans {
 	if ( $amount and $comment ) {
 		my $out;
 		if ( defined $date ) {
-			if ( $date =~ /^\d{2,12}$/ or $date =~ /^\+\d+$/ ) {
+			if ( $date =~ /^\d{1,12}$/ or $date =~ /^\+\d+$/ ) {
 				$date_mod = handleDate($date);
 			}
 			else {
@@ -1074,4 +1097,189 @@ sub menu_help {
 	print "Or, consult the README that came in the brinance distribution.\n";
 
 	return;
+}
+
+{
+	my @args;
+	sub credit {
+		shift; # Getopt::Long object
+		push @args, shift;
+
+		if (2 == @args) {
+			CLItrans( @args, 1 );
+			@args = ();
+		}
+
+		return;
+	}
+}
+
+{
+	my @args;
+	sub datedcredit {
+		shift; # Getopt::Long object
+		push @args, shift;
+
+		if (3 == @args) {
+			CLItrans( @args, 1 );
+			@args = ();
+		}
+
+		return;
+	}
+}
+
+{
+	my @args;
+	sub debit {
+		shift; # Getopt::Long object
+		push @args, shift;
+
+		if (2 == @args) {
+			CLItrans( @args, 0 );
+			@args = ();
+		}
+
+		return;
+	}
+}
+
+{
+	my @args;
+	sub dateddebit {
+		shift; # Getopt::Long object
+		push @args, shift;
+
+		if (3 == @args) {
+			CLItrans( @args, 0 );
+			@args = ();
+		}
+
+		return;
+	}
+}
+
+sub balance {
+	print 'Balance: ', balance(), "\n";
+
+	return;
+}
+
+sub datedbalance {
+	shift; # Getopt::Long object
+	my $date = shift;
+
+	if ($date) {
+		if ( $date =~ /^\d{1,12}$/ or $date =~ /^\+(\d+)$/ ) {
+			$date = handleDate($date);
+		}
+		else {
+			print STDERR "ERROR: date not in 12-digit or +<days> format\n";
+			usage(1);
+		}
+
+		print "account $current_acct balance at $date: ", balance($date), "\n";
+	}
+	else {
+		print STDERR "ERROR: dated balance requires an argument\n";
+		usage(1);
+	}
+}
+
+sub all_accounts {
+	printAccountSummary();
+	return;
+}
+
+sub datedall_accounts {
+	shift; # Getopt::Long object
+	my $date = handleDate( shift() );
+	printAccountSummary($date);
+	return;
+}
+
+{
+	my @args;
+	sub transfer {
+		shift;
+		push @args, shift;
+
+		if (4 == @args) {
+			transfer( $now, @args );
+			@args = ();
+		}
+
+		return;
+	}
+}
+
+{
+	my @args;
+	sub datedtransfer {
+		shift;
+		push @args, shift;
+
+		if (5 == @args) {
+			transfer( @args );
+			@args = ();
+		}
+
+		return;
+	}
+}
+
+sub print_name {
+	if ( my $name = getName() ) {
+		print "account $current_acct name: $name\n";
+	}
+	else {
+		print "No name for account $current_acct\n";
+	}
+
+	return;
+}
+
+{
+	my @args;
+	sub create_account {
+		shift;
+		push @args, shift;
+
+		if (2 == @args) {
+			my $account = shift @args;
+			my $name    = shift @args;
+
+			if ( $name and defined $account ) {
+				my $out = create( $name, $account );
+
+				if ( 1 == $out ) {
+
+					# already exists
+					print "account $account already exists\n";
+					exit(0);
+				}
+				elsif ( 0 == $out ) {
+
+					# success
+					print "account $account created successfully\n";
+				}
+				elsif ( -1 == $out ) {
+
+					# too few
+					print "too few arguments to create()\n";
+				}
+				else {
+					print STDERR "ERROR: undefined output from getName(); Check your accounts file..\n";
+					print "Exitting..\n";
+					exit(1);
+				}
+			}
+			else {
+				print STDERR "ERROR: too few arguments to create\n";
+				usage(1);
+			}
+
+			@args = ();
+		}
+	}
 }
