@@ -34,7 +34,7 @@ brinance - CLI interface to Brinance module
 
 =head1 VERSION
 
-Version 4.50
+Version 4.59
 
 =head1 SYNOPSIS
 
@@ -46,31 +46,11 @@ different interface to the same module.
 
 use IO::Prompt::Tiny qw(prompt);
 use Getopt::Long;
+
+use lib 'lib'; # pull in dev version if it's staged..
 use Brinance;
 
-my $VERSION = '4.50';
-
-=old
-# We first pull apart all arguments and push them or their equivalent onto @arglist
-my @arglist;
-my %options = (
-	'help'          => 'h',
-	'version'       => 'v',
-	'name'          => 'n',
-	'create'        => 'r',
-	'credit'        => 'c',
-	'debit'         => 'd',
-	'balance'       => 'b',
-	'datedcredit'   => 'C',
-	'dateddebit'    => 'D',
-	'datedbalance'  => 'B',
-	'all'           => 'a',
-	'datedall'      => 'A',
-	'transfer'      => 't',
-	'datedtransfer' => 'T',
-);
-my $validoptions = join '', ( values %options );
-=cut
+my $VERSION = '4.59';
 
 # check if we need to convert old account# files to an accounts file
 #  if so, suggest they run the included conversion script (don't want conv code in here..)
@@ -92,216 +72,15 @@ GetOptions(
 	'create|r' => \&create_account,
 	'credit|c=s{2}' => \&credit,
 	'debit|d=s{2}' => \&debit,
-	'balance|b' => \&balance,
+	'balance|b' => \&get_balance,
 	'datedcredit|C=s{3}' => \&datedcredit,
 	'dateddebit|D=s{3}' => \&dateddebit,
 	'datedbalance|B=s' => \&datedbalance,
 	'all|a' => \&all_accounts,
 	'datedall|A=s' => \&datedall_accounts,
-	'transfer|t=s{4}' => \&transfer,
-	'datedtransfer|T=s{5}' => \&datedtransfer,
+	'transfer|t=s{4}' => \&do_transfer,
+	'datedtransfer|T=s{5}' => \&do_datedtransfer,
 ) or die "Unrecognized option!\n";
-
-=old
-foreach (@ARGV) {
-	if (/^--./) {    # GNU style option
-		my $gnu_option = substr $_, 2;
-
-		if ( defined $options{$gnu_option} ) {
-			push @arglist, '-' . $options{$gnu_option};
-		}
-		else {
-			print STDERR "ERROR: Unrecognized GNU style option: '$gnu_option'\n";
-			usage(1);
-		}
-	}
-	elsif (/^-./) {
-		my @opts = split //, ( substr $_, 1 );
-
-		my $num = undef;
-		foreach my $opt (@opts) {
-			if ( $opt =~ /[$validoptions]/o ) {
-				if ( defined $num ) {
-					push @arglist, "-$num";
-					$num = undef;
-				}
-				push @arglist, "-$opt";
-			}
-			elsif ( $opt =~ /\d/ ) {
-				if ( defined $num ) {
-					$num .= $opt;
-				}
-				else {
-					$num = $opt;
-				}
-			}
-			else {
-				print STDERR "ERROR: Unrecognized option: '-$opt'\n";
-				usage(1);
-			}
-		}
-
-		if ( defined $num ) {
-			push @arglist, "-$num";
-		}
-	}
-	else {
-		push @arglist, $_;
-	}
-}
-
-unless (@arglist) {
-	print "Starting in menu-mode..\n";
-	menu();
-	exit 0;
-}
-
-
-# Process @arglist
-while (@arglist) {
-	local $_ = shift @arglist;
-
-	if (/^-(\d+)$/) {
-		my $out = switch_acct( $1 + 0 );
-
-		if ( 1 == $out ) {
-			print STDERR "WARNING: Created account 0 (this shouldn't happen here..)\n";
-		}
-		elsif ( 0 == $out ) {
-			print "-- working with account $current_acct\n";
-		}
-		elsif ( -1 == $out ) {
-			print STDERR "ERROR: account $current_acct doesn't exist.\nUse -r or --create\n";
-			usage(1);
-		}
-		else {
-			print STDERR "ERROR: switch_acct() undefined output. Check your data. Exitting..\n";
-			exit(1);
-		}
-	}
-	elsif ( $_ eq '-v' ) {
-		cli_version();
-	}
-	elsif ( $_ eq '-h' ) {
-		usage( 0, 1 );
-	}
-	elsif ( $_ eq '-b' ) {
-		print 'Balance: ', balance(), "\n";
-	}
-	elsif ( $_ eq '-c' ) {
-		my $amount  = shift @arglist;
-		my $comment = shift @arglist;
-		CLItrans( $amount, $comment, 1 );
-	}
-	elsif ( $_ eq '-d' ) {
-		my $amount  = shift @arglist;
-		my $comment = shift @arglist;
-		CLItrans( $amount, $comment, 0 );
-	}
-	elsif ( $_ eq '-C' ) {
-		my $date    = shift @arglist;
-		my $amount  = shift @arglist;
-		my $comment = shift @arglist;
-		CLItrans( $amount, $comment, 1, $date );
-	}
-	elsif ( $_ eq '-D' ) {
-		my $date    = shift @arglist;
-		my $amount  = shift @arglist;
-		my $comment = shift @arglist;
-		CLItrans( $amount, $comment, 0, $date );
-	}
-	elsif ( $_ eq '-B' ) {
-		my $date = shift @arglist;
-
-		if ($date) {
-			if ( $date =~ /^\d{2,12}$/ or $date =~ /^\+(\d+)$/ ) {
-				$date = handleDate($date);
-			}
-			else {
-				print STDERR "ERROR: date not in 12-digit or +<days> format\n";
-				usage(1);
-			}
-
-			print "account $current_acct balance at $date: ", balance($date), "\n";
-		}
-		else {
-			print STDERR "ERROR: dated balance requires an argument\n";
-			usage(1);
-		}
-	}
-	elsif ( $_ eq '-n' ) {
-		if ( my $name = getName() ) {
-			print "account $current_acct name: $name\n";
-		}
-		else {
-			print "No name for account $current_acct\n";
-		}
-	}
-	elsif ( $_ eq '-r' ) {
-		my $account = shift @arglist;
-		my $name    = shift @arglist;
-
-		if ( $name and defined $account ) {
-			my $out = create( $name, $account );
-
-			if ( 1 == $out ) {
-
-				# already exists
-				print "account $account already exists\n";
-				exit(0);
-			}
-			elsif ( 0 == $out ) {
-
-				# success
-				print "account $account created successfully\n";
-			}
-			elsif ( -1 == $out ) {
-
-				# too few
-				print "too few arguments to create()\n";
-			}
-			else {
-				print STDERR "ERROR: undefined output from getName(); Check your accounts file..\n";
-				print "Exitting..\n";
-				exit(1);
-			}
-		}
-		else {
-			print STDERR "ERROR: too few arguments to create\n";
-			usage(1);
-		}
-	}
-	elsif ( $_ eq '-a' ) {
-		printAccountSummary();
-	}
-	elsif ( $_ eq '-A' ) {
-		my $date = handleDate( shift @arglist );
-		printAccountSummary($date);
-	}
-	elsif ( $_ eq '-t' ) {
-		my $amount  = shift @arglist;
-		my $from    = shift @arglist;
-		my $to      = shift @arglist;
-		my $comment = shift @arglist;
-
-		transfer( $now, $amount, $from, $to, $comment );
-	}
-	elsif ( $_ eq '-T' ) {
-		my $date    = shift @arglist;
-		my $amount  = shift @arglist;
-		my $from    = shift @arglist;
-		my $to      = shift @arglist;
-		my $comment = shift @arglist;
-
-		transfer( $date, $amount, $from, $to, $comment );
-	}
-	else {
-		# unrecognized option/argument
-		print STDERR "ERROR: Unrecognized option: '$_'\n";
-		usage(1);
-	}
-}
-=cut
 
 exit(0);
 
@@ -1159,7 +938,7 @@ sub menu_help {
 	}
 }
 
-sub balance {
+sub get_balance {
 	print 'Balance: ', balance(), "\n";
 
 	return;
@@ -1200,7 +979,7 @@ sub datedall_accounts {
 
 {
 	my @args;
-	sub transfer {
+	sub do_transfer {
 		shift;
 		push @args, shift;
 
@@ -1215,7 +994,7 @@ sub datedall_accounts {
 
 {
 	my @args;
-	sub datedtransfer {
+	sub do_datedtransfer {
 		shift;
 		push @args, shift;
 

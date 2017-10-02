@@ -39,7 +39,7 @@ Brinance - lightweight financial planner/tracker
 
 =head1 VERSION
 
-Version 4.50
+Version 4.59
 
 =head1 SYNOPSIS
 
