@@ -46,6 +46,7 @@ different interface to the same module.
 
 use IO::Prompt::Tiny qw(prompt);
 use Getopt::Long;
+Getopt::Long::Configure('no_ignore_case');
 
 use lib 'lib'; # pull in dev version if it's staged..
 use Brinance;
