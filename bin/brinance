@@ -167,7 +167,7 @@ sub CLItrans {
 				$date_mod = handleDate($date);
 			}
 			else {
-				print STDERR "ERROR: date not formatted correctly\n";
+				print STDERR "ERROR: date not formatted correctly: '$date'\n";
 				usage(1);
 			}
 
@@ -931,8 +931,10 @@ sub menu_help {
 		push @args, shift;
 
 		if (3 == @args) {
-			CLItrans( @args, 0 );
-			@args = ();
+			my $date = shift @args;
+			my $amount = shift @args;
+			my $description = shift @args;
+			CLItrans( $amount, $description, $date, 0 );
 		}
 
 		return;
