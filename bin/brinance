@@ -2,7 +2,7 @@
 #
 # This software released under the terms of the GNU General Public License 2.0
 #
-# Copyright (C) 2003-2008 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
+# Copyright (C) 2003-2018 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -45,9 +45,9 @@ different interface to the same module.
 =cut
 
 use IO::Prompt::Tiny qw(prompt);
-use Brinance;
+use Brinance qw(:all);
 
-my $VERSION = '4.50';
+my $VERSION = '4.59';
 
 # We first pull apart all arguments and push them or their equivalent onto @arglist
 my @arglist;
@@ -940,7 +940,7 @@ sub cli_version {
 	print 'Brinance module version: ' . version() . "\n";
 	print "brinance CLI version: $VERSION\n";
 	print "\n";
-	print "Copyright (C) 2003-2008 Brian Kelly locoburger\@gmail.com\n";
+	print "Copyright (C) 2003-2018 Brian Kelly locoburger\@gmail.com\n";
 	print "brinance comes with ABSOLUTELY NO WARRANTY\n";
 	print "This is free software, and you are welcome to redistribute it\n";
 	print "under certain conditions. See LICENSE for details.\n";

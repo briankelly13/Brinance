@@ -2,7 +2,7 @@
 #
 # This software released under the terms of the GNU General Public License 2.0
 #
-# Copyright (C) 2003-2008 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
+# Copyright (C) 2003-2018 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ use warnings;
 
 use Date::Calc qw(Add_Delta_Days);
 
-require Exporter;
+use Exporter 'import';
 
 =head1 NAME
 
@@ -58,13 +58,15 @@ subroutines have been deprecated since then, though.
 
 =cut
 
-our @ISA     = ('Exporter');
-our $VERSION = '4.59';
-our @EXPORT  = qw(
+our $VERSION    = '4.59';
+
+my @exports = qw(
   $current_acct $now $account_dir
-  &getName &balance &trans &get_accts
-  &version &create &switch_acct
+  getName balance trans get_accts
+  version create switch_acct
 );
+our @EXPORT_OK = @exports;
+our %EXPORT_TAGS = ( all => \@exports );
 
 our $current_acct = 0;
 our $now;
@@ -541,6 +543,7 @@ sub _get_dayow {
 	my $ypart = ( $y % 100 ) + int( ( ( $y % 100 ) / 4 ) );
 	my @mpart = ( 0, 6, 2, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 );
 	my $dpart = $d;
+#FIXME: uninit sometimes
 	my $total = $ypart + $mpart[$m] + $dpart;
 	if ( int( $y / 100 ) == 19 ) { $total += 1; }
 	if ( ( $y % 4 ) == 0 ) {
@@ -971,7 +974,7 @@ None, obviously!
 
 This software released under the terms of the GNU General Public License 2.0
 
-Copyright (C) 2003-2008 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
+Copyright (C) 2003-2018 Brian M. Kelly locoburger@gmail.com http://locoburger.org/
 
 =cut
 

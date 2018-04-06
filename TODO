@@ -14,3 +14,7 @@
   - non-options: keep adding to transaction description, less quoting required
 
 * reasonable/standard error handling
+
+* FEATURE: BRINANCE_DATE env variable; assumes it's the current date
+  - shorter date: BRINANCE_DATE=201712 assumes all transactions occur in 2017/12
+  - maybe a better way? want some way to assume part of the date
