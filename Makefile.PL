@@ -10,6 +10,7 @@ WriteMakefile(
 	],
 	'PREREQ_PM' => {
 		'Date::Calc' => '5.4',
+		'IO::Prompt::Tiny' => '0.003',
 	},
 	'PREREQ_PRINT' => 1,
 );
