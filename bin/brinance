@@ -48,7 +48,7 @@ use IO::Prompt::Tiny qw(prompt);
 use Getopt::Long;
 Getopt::Long::Configure('no_ignore_case');
 
-use lib 'lib'; # pull in dev version if it's staged..
+use lib 'lib';    # pull in dev version if it's staged..
 use Brinance;
 
 my $VERSION = '4.59';
@@ -67,19 +67,19 @@ if ( not -e "$account_dir/accounts" and -e "$account_dir/account0" ) {
 switch_acct(0);    # sets us up to use account 0
 
 GetOptions(
-	'help' => sub { usage( 0, 1 ); },
-	'version' => \&cli_version,
-	'name|n' => \&print_name,
-	'create|r' => \&create_account,
-	'credit|c=s{2}' => \&credit,
-	'debit|d=s{2}' => \&debit,
-	'balance|b' => \&get_balance,
-	'datedcredit|C=s{3}' => \&datedcredit,
-	'dateddebit|D=s{3}' => \&dateddebit,
-	'datedbalance|B=s' => \&datedbalance,
-	'all|a' => \&all_accounts,
-	'datedall|A=s' => \&datedall_accounts,
-	'transfer|t=s{4}' => \&do_transfer,
+	'help'                 => sub { usage( 0, 1 ); },
+	'version'              => \&cli_version,
+	'name|n'               => \&print_name,
+	'create|r'             => \&create_account,
+	'credit|c=s{2}'        => \&credit,
+	'debit|d=s{2}'         => \&debit,
+	'balance|b'            => \&get_balance,
+	'datedcredit|C=s{3}'   => \&datedcredit,
+	'dateddebit|D=s{3}'    => \&dateddebit,
+	'datedbalance|B=s'     => \&datedbalance,
+	'all|a'                => \&all_accounts,
+	'datedall|A=s'         => \&datedall_accounts,
+	'transfer|t=s{4}'      => \&do_transfer,
 	'datedtransfer|T=s{5}' => \&do_datedtransfer,
 ) or die "Unrecognized option!\n";
 
@@ -415,17 +415,17 @@ sub menu {
 		foreach (
 			sort {
 				# make Quit appear last
-				if ('q' eq $a) {
+				if ( 'q' eq $a ) {
 					return 1;
 				}
-				elsif ('q' eq $b) {
+				elsif ( 'q' eq $b ) {
 					return -1;
 				}
 				else {
 					return $a cmp $b;
 				}
 			} keys %menu_options
-		  )
+			)
 		{
 			print "$_) $menu_options{$_}{'text'}\n";
 		}
@@ -881,11 +881,12 @@ sub menu_help {
 
 {
 	my @args;
+
 	sub credit {
-		shift; # Getopt::Long object
+		shift;    # Getopt::Long object
 		push @args, shift;
 
-		if (2 == @args) {
+		if ( 2 == @args ) {
 			CLItrans( @args, 1 );
 			@args = ();
 		}
@@ -896,11 +897,12 @@ sub menu_help {
 
 {
 	my @args;
+
 	sub datedcredit {
-		shift; # Getopt::Long object
+		shift;    # Getopt::Long object
 		push @args, shift;
 
-		if (3 == @args) {
+		if ( 3 == @args ) {
 			CLItrans( @args, 1 );
 			@args = ();
 		}
@@ -911,11 +913,12 @@ sub menu_help {
 
 {
 	my @args;
+
 	sub debit {
-		shift; # Getopt::Long object
+		shift;    # Getopt::Long object
 		push @args, shift;
 
-		if (2 == @args) {
+		if ( 2 == @args ) {
 			CLItrans( @args, 0 );
 			@args = ();
 		}
@@ -926,13 +929,14 @@ sub menu_help {
 
 {
 	my @args;
+
 	sub dateddebit {
-		shift; # Getopt::Long object
+		shift;    # Getopt::Long object
 		push @args, shift;
 
-		if (3 == @args) {
-			my $date = shift @args;
-			my $amount = shift @args;
+		if ( 3 == @args ) {
+			my $date        = shift @args;
+			my $amount      = shift @args;
 			my $description = shift @args;
 			CLItrans( $amount, $description, $date, 0 );
 		}
@@ -948,7 +952,7 @@ sub get_balance {
 }
 
 sub datedbalance {
-	shift; # Getopt::Long object
+	shift;    # Getopt::Long object
 	my $date = shift;
 
 	if ($date) {
@@ -974,7 +978,7 @@ sub all_accounts {
 }
 
 sub datedall_accounts {
-	shift; # Getopt::Long object
+	shift;    # Getopt::Long object
 	my $date = handleDate( shift() );
 	printAccountSummary($date);
 	return;
@@ -982,11 +986,12 @@ sub datedall_accounts {
 
 {
 	my @args;
+
 	sub do_transfer {
 		shift;
 		push @args, shift;
 
-		if (4 == @args) {
+		if ( 4 == @args ) {
 			transfer( $now, @args );
 			@args = ();
 		}
@@ -997,12 +1002,13 @@ sub datedall_accounts {
 
 {
 	my @args;
+
 	sub do_datedtransfer {
 		shift;
 		push @args, shift;
 
-		if (5 == @args) {
-			transfer( @args );
+		if ( 5 == @args ) {
+			transfer(@args);
 			@args = ();
 		}
 
@@ -1023,11 +1029,12 @@ sub print_name {
 
 {
 	my @args;
+
 	sub create_account {
 		shift;
 		push @args, shift;
 
-		if (2 == @args) {
+		if ( 2 == @args ) {
 			my $account = shift @args;
 			my $name    = shift @args;
 

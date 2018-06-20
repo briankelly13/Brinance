@@ -61,9 +61,9 @@ subroutines have been deprecated since then, though.
 our @ISA     = ('Exporter');
 our $VERSION = '4.59';
 our @EXPORT  = qw(
-  $current_acct $now $account_dir
-  &getName &balance &trans &get_accts
-  &version &create &switch_acct
+	$current_acct $now $account_dir
+	&getName &balance &trans &get_accts
+	&version &create &switch_acct
 );
 
 our $current_acct = 0;
@@ -137,9 +137,9 @@ sub balance {
 	my $total = 0;
 	foreach my $t ( @transactions, @new_transactions ) {
 		$total += $t->{'amount'}
-		  if $t->{'type'} eq 'transaction'
-		  and $t->{'account'} == $current_acct
-		  and $t->{'date'} <= $date_req;
+			if $t->{'type'} eq 'transaction'
+			and $t->{'account'} == $current_acct
+			and $t->{'date'} <= $date_req;
 	}
 
 	if ( $date_req > $now ) {
@@ -206,13 +206,13 @@ sub trans {
 	}
 
 	push @new_transactions,
-	  {
+		{
 		'date'    => $req_date,
 		'account' => $current_acct,
 		'amount'  => $amount,
 		'comment' => $comment,
 		'type'    => 'transaction',
-	  };
+		};
 
 	return 0;
 }
@@ -332,20 +332,21 @@ sub _update_futures {
 		my @dates = ();
 		if ( $fut->{'type'} eq 'pattern' and $fut->{'account'} == $current_acct ) {
 			@dates = &_calc_future_patterns(
-				$fut->{'year'},                      $fut->{'month'}, $fut->{'day'}, $fut->{'day_logic'},
-				$fut->{'dayow'},                     $fut->{'hour'},  $fut->{'min'}, $fut->{'origin'},
-				$accounts{$current_acct}{'updated'}, $now,
+				$fut->{'year'},      $fut->{'month'},  $fut->{'day'},
+				$fut->{'day_logic'}, $fut->{'dayow'},  $fut->{'hour'},
+				$fut->{'min'},       $fut->{'origin'}, $accounts{$current_acct}{'updated'},
+				$now,
 			);
 
 			foreach my $date (@dates) {
 				push @new_transactions,
-				  {
+					{
 					'date'    => $date,
 					'amount'  => $fut->{'amount'},
 					'account' => $fut->{'account'},
 					'comment' => $fut->{'comment'},
 					'type'    => 'transaction',
-				  };
+					};
 			}
 		}
 	}
@@ -432,7 +433,7 @@ sub _calc_future_patterns {
 			next;
 		}
 		my ( $year_req, $month_req, $day_req, $hour_req, $min_req, $dayow_req ) =
-		  ( $1, $2, $3, $hour, $min, &_get_dayow( $1, $2, $3 ) );
+			( $1, $2, $3, $hour, $min, &_get_dayow( $1, $2, $3 ) );
 
 		my $curr = 1;    # whether this date is a go
 		if (%years) {
@@ -477,9 +478,9 @@ sub _calc_future_patterns {
 				my $calc_period = 7 * $divisor;    # determine the period (in the current units)
 				                                   # calc_period = period * divisor (in current units)
 				                                   #FIXME: only works for weeks right now.. maybe forever..
-				                                   # keep adding calc_period to origin until we hit requested date (leave curr alone)
-				                                   # or we go past (curr = 0)
-				my $calc_date   = $origin;
+				     # keep adding calc_period to origin until we hit requested date (leave curr alone)
+				     # or we go past (curr = 0)
+				my $calc_date = $origin;
 				while ( $calc_date < $current_date ) {
 					$calc_date = &_add_date( $calc_date, $calc_period );
 				}
@@ -623,20 +624,20 @@ sub _setup {
 			elsif (/^(\d{12})\s+(\d+)\s+([-\d\.]+)\s+(.*)$/) {
 				my ( $date, $account, $amount, $comment ) = ( $1, $2, $3, $4 );
 				push @transactions,
-				  {
+					{
 					'date'    => $date,
 					'account' => $account,
 					'amount'  => $amount,
 					'comment' => $comment,
 					'type'    => 'transaction',
-				  };
+					};
 			}
 			else {
 				push @transactions,
-				  {
+					{
 					'line' => $_,
 					'type' => 'comment',
-				  };
+					};
 			}
 		}
 		close $ACCOUNT;
@@ -690,10 +691,10 @@ sub _setup {
 					(-?[\.\d]+)	# transaction amount
 					\s+(.+)		# transaction comment
 					$/x
-			  )
+				)
 			{
 				push @futures,
-				  {
+					{
 					'line'      => $_,
 					'type'      => 'pattern',
 					'year'      => $1,
@@ -707,14 +708,14 @@ sub _setup {
 					'account'   => $9,
 					'amount'    => $10,
 					'comment'   => $11,
-				  };
+					};
 			}
 			else {
 				push @futures,
-				  {
+					{
 					'line' => $_,
 					'type' => 'comment',
-				  };
+					};
 			}
 		}
 		close $FUTURE;
@@ -734,7 +735,7 @@ writes new accounts file if there's been a change
 sub _writechanges {
 	if ( keys %new_accounts ) {
 		open( my $ACCOUNT, '>', "$account_dir/accounts" )
-		  or die "ERROR: Cannot open file $account_dir/accounts for writing: $!";
+			or die "ERROR: Cannot open file $account_dir/accounts for writing: $!";
 
 		foreach ( sort { $a <=> $b } ( keys %accounts, keys %new_accounts ) ) {
 			if ( defined $accounts{$_} ) {
@@ -757,7 +758,10 @@ sub _writechanges {
 
 		foreach ( @transactions, @new_transactions ) {
 			if ( $_->{'type'} eq 'transaction' ) {
-				print $ACCOUNT $_->{'date'} . "\t" . $_->{'account'} . "\t" . $_->{'amount'} . "\t" . $_->{'comment'} . "\n";
+				print $ACCOUNT $_->{'date'} . "\t"
+					. $_->{'account'} . "\t"
+					. $_->{'amount'} . "\t"
+					. $_->{'comment'} . "\n";
 			}
 			elsif ( $_->{'type'} eq 'comment' ) {
 				print $ACCOUNT $_->{'line'} . "\n";
@@ -768,11 +772,14 @@ sub _writechanges {
 	}
 	elsif (@new_transactions) {
 		open( my $ACCOUNT, '>>', "$account_dir/accounts" )
-		  or die "ERROR: Cannot open file $account_dir/accounts for appending: $!";
+			or die "ERROR: Cannot open file $account_dir/accounts for appending: $!";
 
 		foreach (@new_transactions) {
 			if ( $_->{'type'} eq 'transaction' ) {
-				print $ACCOUNT $_->{'date'} . "\t" . $_->{'account'} . "\t" . $_->{'amount'} . "\t" . $_->{'comment'} . "\n";
+				print $ACCOUNT $_->{'date'} . "\t"
+					. $_->{'account'} . "\t"
+					. $_->{'amount'} . "\t"
+					. $_->{'comment'} . "\n";
 			}
 			elsif ( $_->{'type'} eq 'comment' ) {
 				print $ACCOUNT $_->{'line'} . "\n";
@@ -783,7 +790,7 @@ sub _writechanges {
 	}
 
 	open( my $LAST_UPDATES, '>', "$account_dir/last_updates" )
-	  or die "ERROR: Cannot open file $account_dir/last_updates for writing: $!";
+		or die "ERROR: Cannot open file $account_dir/last_updates for writing: $!";
 
 	&_renow;
 
