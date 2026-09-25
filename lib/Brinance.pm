@@ -374,16 +374,7 @@ processes patterns lines in futures file between last_update and now
 =cut
 
 sub _calc_future_patterns {
-	my $year      = shift or return;
-	my $month     = shift or return;
-	my $day       = shift or return;
-	my $day_logic = shift or return;
-	my $dayow     = shift or return;
-	my $hour      = shift or return;
-	my $min       = shift or return;
-	my $origin    = shift or return;
-	my $from_date = shift or return;
-	my $to_date   = shift or return;
+	my ( $year, $month, $day, $day_logic, $dayow, $hour, $min, $origin, $from_date, $to_date ) = @_;
 
 	$hour = ( length $hour ) eq 1 ? '0' . $hour : $hour;
 	$min  = ( length $min ) eq 1  ? '0' . $min  : $min;
