@@ -332,7 +332,7 @@ sub _update_futures {
 	foreach my $fut (@futures) {
 		my @dates = ();
 		if ( $fut->{'type'} eq 'pattern' and $fut->{'account'} == $current_acct ) {
-			@dates = &_calc_future_patterns(
+			@dates = _calc_future_patterns(
 				$fut->{'year'},      $fut->{'month'},  $fut->{'day'},
 				$fut->{'day_logic'}, $fut->{'dayow'},  $fut->{'hour'},
 				$fut->{'min'},       $fut->{'origin'}, $accounts{$current_acct}{'updated'},
@@ -381,11 +381,11 @@ sub _calc_future_patterns {
 
 	$from_date =~ /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)$/;
 	my ( $from_year, $from_month, $from_day, $from_hour, $from_min ) = ( $1, $2, $3, $4, $5 );
-	my $from_dayow = &_get_dayow( $from_year, $from_month, $from_day );
+	my $from_dayow = _get_dayow( $from_year, $from_month, $from_day );
 
 	$to_date =~ /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)$/;
 	my ( $to_year, $to_month, $to_day, $to_hour, $to_min ) = ( $1, $2, $3, $4, $5 );
-	my $to_dayow = &_get_dayow( $to_year, $to_month, $to_day );
+	my $to_dayow = _get_dayow( $to_year, $to_month, $to_day );
 
 	$day_logic = '|' unless $day_logic;
 
@@ -413,10 +413,10 @@ sub _calc_future_patterns {
 
 	# we'll only calculate to a day's granularity;
 	# tack on the hour and min as the time, but it doesn't affect the calculation
-	my %years  = &_gen_list($year);
-	my %months = &_gen_list($month);
-	my %days   = &_gen_list($day);
-	my %dayows = &_gen_list($dayow);
+	my %years  = _gen_list($year);
+	my %months = _gen_list($month);
+	my %days   = _gen_list($day);
+	my %dayows = _gen_list($dayow);
 
 	my @return_dates = ();
 	my $current_date = $from_year . $from_month . $from_day;
@@ -425,7 +425,7 @@ sub _calc_future_patterns {
 			next;
 		}
 		my ( $year_req, $month_req, $day_req, $hour_req, $min_req, $dayow_req ) =
-			( $1, $2, $3, $hour, $min, &_get_dayow( $1, $2, $3 ) );
+			( $1, $2, $3, $hour, $min, _get_dayow( $1, $2, $3 ) );
 
 		my $curr = 1;    # whether this date is a go
 		if (%years) {
@@ -474,7 +474,7 @@ sub _calc_future_patterns {
 					# or we go past (curr = 0)
 				my $calc_date = $origin;
 				while ( $calc_date < $current_date ) {
-					$calc_date = &_add_date( $calc_date, $calc_period );
+					$calc_date = _add_date( $calc_date, $calc_period );
 				}
 
 				if ( $calc_date == $current_date ) {
@@ -503,7 +503,7 @@ sub _calc_future_patterns {
 				push( @return_dates, ( $year_req . $month_req . $day_req . $hour_req . $min_req ) );
 			}
 		}
-		$current_date = &_add_date( $current_date, 1 );
+		$current_date = _add_date( $current_date, 1 );
 	}
 
 	my @final_dates = ();
