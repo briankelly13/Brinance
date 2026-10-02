@@ -31,15 +31,13 @@ use warnings;
 
 use Date::Calc qw(Add_Delta_Days);
 
-use Exporter 'import';
-
 =head1 NAME
 
 Brinance - lightweight financial planner/tracker
 
 =head1 VERSION
 
-Version 4.50
+Version 4.59
 
 =head1 SYNOPSIS
 
@@ -60,6 +58,7 @@ subroutines have been deprecated since then, though.
 
 our $VERSION    = '4.59';
 
+use Exporter 'import';
 my @exports = qw(
   $current_acct $now $account_dir
   getName balance trans get_accts
@@ -80,11 +79,11 @@ my @futures          = ();    # AoH patterns and comments found in the futures f
 
 INIT {
 	umask 0077;
-	&_setup;
+	_setup();
 }
 
 END {
-	&_writechanges;
+	_writechanges();
 }
 
 =head1 FUNCTIONS
@@ -132,7 +131,7 @@ balance returned will be zero).
 sub balance {
 	my ($date_req) = @_;
 	unless ( defined $date_req and ( $date_req =~ /^\d{12}$/ ) ) {
-		&_renow;
+		_renow();
 		$date_req = $now;
 	}
 
@@ -148,7 +147,7 @@ sub balance {
 		foreach my $fut (@futures) {
 			my @dates = ();
 			if ( ( $fut->{'type'} eq 'pattern' ) and ( $fut->{'account'} == $current_acct ) ) {
-				@dates = &_calc_future_patterns(
+				@dates = _calc_future_patterns(
 					$fut->{'year'}, $fut->{'month'}, $fut->{'day'},    $fut->{'day_logic'}, $fut->{'dayow'},
 					$fut->{'hour'}, $fut->{'min'},   $fut->{'origin'}, $now,                $date_req,
 				);
@@ -203,7 +202,7 @@ sub trans {
 		}
 	}
 	else {
-		&_renow;
+		_renow();
 		$req_date = $now;
 	}
 
@@ -243,7 +242,7 @@ sub create {
 		return 1;
 	}
 	else {
-		&_renow;
+		_renow();
 		$new_accounts{$acct_num}{'name'}    = $acct_name;
 		$new_accounts{$acct_num}{'updated'} = $now;
 	}
@@ -267,14 +266,14 @@ sub switch_acct {
 	$current_acct += 0;
 
 	if ( defined $accounts{$current_acct} or defined $new_accounts{$current_acct} ) {
-		&_update_futures;
+		_update_futures();
 		return 0;
 	}
 	elsif ( $current_acct == 0 ) {    # create account 0 named "default"
-		&_renow;
+		_renow();
 		$new_accounts{0}{'name'}    = 'default';
 		$new_accounts{0}{'updated'} = $now;
-		&_update_futures;
+		_update_futures();
 		return 1;
 	}
 	else {                            # account not found
@@ -328,7 +327,7 @@ called before working with an account to apply future transactions if they are n
 =cut
 
 sub _update_futures {
-	&_renow;
+	_renow();
 
 	foreach my $fut (@futures) {
 		my @dates = ();
@@ -593,11 +592,11 @@ populates %accounts and @transactions
 =cut
 
 sub _setup {
-	&_renow;
+	_renow();
 
 	my $ACCOUNT;
 	unless ( open( $ACCOUNT, '<', "$account_dir/accounts" ) ) {
-		&_initial_setup;
+		_initial_setup();
 		return;
 	}
 	else {
@@ -654,8 +653,8 @@ sub _setup {
 			close $LAST_UPDATES;
 		}
 
-		open( my $FUTURE, '<', "$account_dir/futures" ) or return;
-		while (<$FUTURE>) {
+		open( my $FUTURES, '<', "$account_dir/futures" ) or return;
+		while (<$FUTURES>) {
 			chomp;
 			if (/^\s*#/) {
 				next;
@@ -711,7 +710,7 @@ sub _setup {
 				  };
 			}
 		}
-		close $FUTURE;
+		close $FUTURES;
 	}
 
 	return;
@@ -779,7 +778,7 @@ sub _writechanges {
 	open( my $LAST_UPDATES, '>', "$account_dir/last_updates" )
 	  or die "ERROR: Cannot open file $account_dir/last_updates for writing: $!";
 
-	&_renow;
+	_renow();
 
 	foreach ( sort { $a <=> $b } ( keys %accounts, keys %new_accounts ) ) {
 		if ( defined $accounts{$_} ) {
@@ -806,7 +805,7 @@ called when accounts file doesn't exist (never been run before)
 =cut
 
 sub _initial_setup {
-	&_renow;
+	_renow();
 
 	unless ( -d $account_dir ) {
 		unless ( mkdir $account_dir ) {
@@ -833,7 +832,7 @@ sub _add_date {
 
 	if ( $date =~ /^\d{8}$/ ) {
 		my ( $year, $month, $day ) = unpack '@0A4 @4A2 @6A2', $date;
-		my ( $y, $m, $d ) = Date::Calc::Add_Delta_Days( $year, $month, $day, $added );
+		my ( $y, $m, $d ) = Add_Delta_Days( $year, $month, $day, $added );
 		return sprintf '%04d%02d%02d', $y, $m, $d;
 	}
 	else {
