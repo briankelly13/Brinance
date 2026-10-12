@@ -235,8 +235,10 @@ sub create {
 		return -1;
 	}
 
-	#FIXME: don't coerce; if it's not numeric, fail
-	$acct_num += 0;    #Make it numeric
+	# don't coerce; if it's not numeric, fail
+	if ($acct_num =~ /\D/ ) {
+		return -1;
+	}
 
 	if ( defined $accounts{$acct_num} or defined $new_accounts{$acct_num} ) {
 		return 1;
@@ -639,6 +641,7 @@ sub _setup {
 		if ( -e "$account_dir/last_updates" ) {
 			$has_last_updates = 1;
 
+			#FIXME: read last_updates
 			open( my $LAST_UPDATES, '<', "$account_dir/last_updates" ) or return;
 			while (<$LAST_UPDATES>) {
 				chomp;
@@ -782,6 +785,7 @@ sub _writechanges {
 		close $ACCOUNT;
 	}
 
+	#FIXME: write the last_updates
 	open( my $LAST_UPDATES, '>', "$account_dir/last_updates" )
 		or die "ERROR: Cannot open file $account_dir/last_updates for writing: $!";
 
@@ -816,7 +820,7 @@ sub _initial_setup {
 
 	unless ( -d $account_dir ) {
 		unless ( mkdir $account_dir ) {
-			die "Could not create account directory: $!";
+			die "Could not create account directory '$account_dir': $!";
 		}
 	}
 

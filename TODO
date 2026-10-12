@@ -18,3 +18,7 @@
 * FEATURE: BRINANCE_DATE env variable; assumes it's the current date
   - shorter date: BRINANCE_DATE=201712 assumes all transactions occur in 2017/12
   - maybe a better way? want some way to assume part of the date
+
+* Consolidate last_updates - just one date, not kept per account
+  - reduces noisy updates in file, reducing backup space
+  - need to always updates every account
